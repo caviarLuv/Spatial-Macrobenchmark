@@ -26,7 +26,13 @@ Ensure memcached is running before running GeoYCSB.
 Executing Benchmark
 --------------------
 
-1. MongoDB
+MongoDB (Microbenchmark)
+
+./bin/ycsb load mongodb -P workloads/geo/workloadga -p mongodb.url="mongodb://localhost:27017/grafittiDB?w=1" -p mongodb.auth="true"
+
+./bin/ycsb run mongodb -P workloads/geo/workloadga -p mongodb.url="mongodb://localhost:27017/grafittiDB?w=1" -p mongodb.auth="true"
+
+MongoDB (Macrobenchmark)
 
 ./bin/ycsb load mongodb -P workloads/geo/workloadgm1 -p mongodb.url="mongodb://localhost:27017/grafittiDB?w=1" -p mongodb.auth="true"
 
