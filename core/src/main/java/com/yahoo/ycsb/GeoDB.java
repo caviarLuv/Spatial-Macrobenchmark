@@ -131,9 +131,18 @@ public abstract class GeoDB extends DB {
   public Status geoLoad(String table, ParameterGenerator generator, Double recordCount) {
     return null;
   }
+  
+  // a geoLoad for loading multiple tables
+  public abstract Status geoLoad(String table1, String table2, String table3,
+      ParameterGenerator generator, Double recordCount);
 
   public Status geoInsert(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
     System.err.println("geoInsert not implemented");
+    return null;
+  }
+  
+  // a geoInsert that works on multiple tables
+  public Status geoInsert(String table, String value, ParameterGenerator gen) {
     return null;
   }
 
@@ -161,5 +170,17 @@ public abstract class GeoDB extends DB {
     System.err.println("geoScan not implemented");
     return null;
   }
+  
+  /* Use case operations for macro-benchmarks */
+  public abstract Status geoUseCase1(String table, HashMap<String, 
+      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
+  
+  public abstract Status geoUseCase2(String table, HashMap<String, 
+      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
+  
+  public abstract Status geoUseCase3(String table1, String table2, HashMap<String,
+      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
+  
+  public abstract Status geoUseCase4(String table, String operation, Set<Integer> deleted, ParameterGenerator gen);
 
 }

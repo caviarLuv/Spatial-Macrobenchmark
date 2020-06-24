@@ -19,6 +19,7 @@ package com.yahoo.ycsb;
 
 import com.yahoo.ycsb.generator.geo.ParameterGenerator;
 import com.yahoo.ycsb.measurements.Measurements;
+
 import org.apache.htrace.core.TraceScope;
 import org.apache.htrace.core.Tracer;
 
@@ -267,6 +268,20 @@ public class GeoDBWrapper extends GeoDB {
       return res;
     }
   }
+  
+  /* GeoLoad for loading multiple tables. */
+  @Override
+  public Status geoLoad(String table1, String table2, String table3, ParameterGenerator generator, Double recordCount) {
+    try (final TraceScope span = tracer.newScope(scopeStringInsert)) {
+      long ist = measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res = db.geoLoad(table1, table2, table3, generator, recordCount);
+      long en = System.nanoTime();
+      measure("GEO_LOAD", res, ist, st, en);
+      measurements.reportStatus("GEO_LOAD", res);
+      return res;
+    }
+  }
 
   public Status geoInsert(String table, HashMap<String, ByteIterator> result, ParameterGenerator generator) {
     try (final TraceScope span = tracer.newScope(scopeStringRead)) {
@@ -346,6 +361,85 @@ public class GeoDBWrapper extends GeoDB {
       return res;
     }
   }
-
+  
+  /* ============= Use case operations for macro-benchmarks ============= */
+  
+  public Status geoUseCase1(String table, HashMap<String, 
+      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator generator) {
+    generator.buildGeoPredicateCase1();
+    try (final TraceScope span = tracer.newScope(scopeStringRead)) {
+      long ist = measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res = db.geoUseCase1(table, result, generator);
+      long en = System.nanoTime();
+      measure("GEO_CASE_GRAFFITI_BY_SCHOOLS", res, ist, st, en);
+      measurements.reportStatus("GEO_CASE_GRAFFITI_BY_SCHOOLS", res);
+      return res;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Status.ERROR;
+    }
+  }
+  
+  public Status geoUseCase2(String table, 
+      HashMap<String, Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator generator) {
+//    generator.buildGeoPredicateCase3();
+    try (final TraceScope span = tracer.newScope(scopeStringRead)) {
+      long ist = measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res = db.geoUseCase2(table, result, generator);
+      long en = System.nanoTime();
+      measure("GEO_CASE_GRAFFITI_BY_DENSITY", res, ist, st, en);
+      measurements.reportStatus("GEO_CASE_GRAFFITI_BY_DENSITY", res);
+      
+      // post processing: true result is only top cell count in length
+//      HashMap<String, Integer> count = new HashMap<String, Integer>();
+//      for(String key : result.keySet()) {
+//        count.put(key, result.get(key).size());
+//      }
+//      ArrayList<Entry<String, Integer>> filter = new ArrayList<>(count.entrySet());
+//      Collections.sort(filter, new Comparator<Entry<String, Integer>>() {
+//        public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
+//          return o1.getValue().compareTo(o2.getValue());
+//        }});
+//        // create an AL of keys to remove from result
+//      ArrayList<String> toRemove = new ArrayList<>();
+//      for(int i = 0; i < filter.size() - GeoWorkload.TOP_CELL_COUNT; i++) {
+//        toRemove.add(filter.get(i).getKey());
+//      }
+//      result.keySet().removeAll(toRemove);
+      
+      return res;
+    } catch(Exception e) {
+      e.printStackTrace();
+      return Status.ERROR;
+    }
+  }
+  
+  public Status geoUseCase3(String table1, String table2, 
+      HashMap<String, Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator generator) {
+    generator.buildGeoPredicateCase3();
+    try (final TraceScope span = tracer.newScope(scopeStringRead)) {
+      long ist = measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res = db.geoUseCase3(table1, table2, result, generator);
+      long en = System.nanoTime();
+      measure("GEO_CASE_GRAFFITI_BY_HIGH_TRAFFIC", res, ist, st, en);
+      measurements.reportStatus("GEO_CASE_GRAFFITI_BY_HIGH_TRAFFIC", res);
+      return res;
+    }
+  }
+  
+  public Status geoUseCase4(String table, String operation, Set<Integer> deleted, ParameterGenerator generator) {
+    try (final TraceScope span = tracer.newScope(scopeStringRead)) {
+      long ist = measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res = db.geoUseCase4(table, operation, deleted, generator);
+      long en = System.nanoTime();
+      measure("GEO_CASE_CLEAN_GRAFFITI", res, ist, st, en);
+      measurements.reportStatus("GEO_CASE_CLEAN_GRAFFITI", res);
+      return res;
+    }
+  }
 
 }

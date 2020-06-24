@@ -371,7 +371,15 @@ class ClientThread implements Runnable {
 
   private int opsdone;
   private int threadid;
+  public void setThreadid(int threadid) {
+    this.threadid = threadid;
+  }
+
   private int threadcount;
+  public void setThreadcount(int threadcount) {
+    this.threadcount = threadcount;
+  }
+
   private Object workloadstate;
   private Properties props;
   private long targetOpsTickNs;
@@ -453,9 +461,9 @@ class ClientThread implements Runnable {
         }
       } else {
         long startTimeNanos = System.nanoTime();
-
+        
         while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-
+          
           if (!workload.doInsert(db, workloadstate)) {
             break;
           }
@@ -877,7 +885,8 @@ public final class Client {
 
         ClientThread t = new ClientThread(db, dotransactions, workload, props, threadopcount, targetperthreadperms,
             completeLatch);
-
+        t.setThreadid(threadid);
+        t.setThreadcount(threadcount);
         clients.add(t);
       }
 
