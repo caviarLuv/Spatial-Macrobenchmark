@@ -10,7 +10,7 @@ scanproportion=0
 insertproportion=0
 
 
-workload=com.yahoo.ycsb.workloads.geo.GeoWorkload
+workload=site.ycsb.workloads.geo.GeoWorkload
 
 
 # Workload settings for geo

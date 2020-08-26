@@ -72,6 +72,8 @@ LICENSE file.
         <module name="JavadocType">
           <property name="scope" value="public"/>
           <property name="allowMissingParamTags" value="true"/>
+          <!-- unfortunately we cannot add implNote, implSpec, apiNote and apiSpec to checkstyle -->
+          <property name="allowUnknownTags" value="true"/>
         </module>
         <module name="JavadocStyle"/>
 
@@ -159,7 +161,8 @@ LICENSE file.
         <module name="EqualsHashCode"/>
         <module name="HiddenField">
           <property name="ignoreConstructorParameter" value="true"/>
-          <property name="ignoreSetter" value="true" />
+          <!-- added for geo YCSB -->
+          <property name="tokens" value="VARIABLE_DEF"/> 
         </module>
         <module name="IllegalInstantiation"/>
         <module name="InnerAssignment"/>
