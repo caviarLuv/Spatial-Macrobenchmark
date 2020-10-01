@@ -6,6 +6,8 @@ import site.ycsb.workloads.geo.GeoWorkload;
 
 import java.util.*;
 import org.json.*;
+import org.locationtech.geomesa.utils.interop.SimpleFeatureTypes;
+import org.opengis.feature.simple.SimpleFeatureType;
 
 
 /**
@@ -180,6 +182,8 @@ public abstract class ParameterGenerator {
 
   protected abstract int increment(String key, int step);
 
+  //Geomesa related variables
+  private SimpleFeatureType sft;
   public ParameterGenerator(Properties p) {
     properties = p;
 
@@ -1180,4 +1184,32 @@ public abstract class ParameterGenerator {
   public String getBuildingsShapeArea() {
     return GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_SHAPE_AREA;
   }
+  
+  //-------------------Geomesa related------------------------
+  public SimpleFeatureType getSimpleFeatureType() {
+		if (sft == null) {
+			StringBuilder attributes = new StringBuilder();
+			attributes.append(GEO_FIELD_INCIDENTS_TYPE + ":String,");
+			//Properties? 
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_OBJECTID + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_INCIDENT_NUMBER + ":String,");
+			//Modify LOCATION -> _LOCATION due to geomesa reserved word list
+			attributes.append("_" + GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_LOCATION + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_NOTIFICATION + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_INCIDENT_DATE + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_TAG_COUNT + ":Integer,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_MONIKER_CLASS + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_SQ_FT + ":Integer,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_PROP_TYPE + ":String,");
+			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_WAIVER + ":String,");
+			attributes.append("*" + GEO_FIELD_INCIDENTS_GEOMETRY + ":Point:srid=4326");
+			sft = SimpleFeatureTypes.createType("incidents", attributes.toString());
+			//Only enabling z2 indexing
+			sft.getUserData().put("geomesa.indices.enabled", "z2");
+			//Generating UUID as Feature ID
+			sft.getUserData().put("geomesa.fid.uuid", "true");
+		}
+		return sft;
+	}
+  
 }

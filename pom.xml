@@ -83,6 +83,11 @@ LICENSE file.
   <dependencyManagement>
     <dependencies>
       <dependency>
+        <groupId>org.locationtech.geomesa</groupId>
+        <artifactId>geomesa-utils_2.11</artifactId>
+        <version>3.0.0</version>
+      </dependency>
+      <dependency>
         <groupId>com.puppycrawl.tools</groupId>
         <artifactId>checkstyle</artifactId>
         <version>7.7.1</version>
@@ -262,6 +267,7 @@ LICENSE file.
               <goal>check</goal>
             </goals>
             <configuration>
+              <skip>true</skip>
               <configLocation>checkstyle.xml</configLocation>
             </configuration>
           </execution>

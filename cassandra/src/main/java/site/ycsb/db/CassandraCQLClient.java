@@ -280,7 +280,6 @@ public class CassandraCQLClient extends DB {
    *          A HashMap of field/value pairs for the result
    * @return Zero on success, a non-zero error code on error
    */
-  @Override
   public Status read(String table, String key, Set<String> fields,
       Map<String, ByteIterator> result) {
     try {
@@ -463,7 +462,6 @@ public class CassandraCQLClient extends DB {
    *          A HashMap of field/value pairs to update in the record
    * @return Zero on success, a non-zero error code on error
    */
-  @Override
   public Status update(String table, String key, Map<String, ByteIterator> values) {
 
     try {
@@ -535,7 +533,6 @@ public class CassandraCQLClient extends DB {
    *          A HashMap of field/value pairs to insert in the record
    * @return Zero on success, a non-zero error code on error
    */
-  @Override
   public Status insert(String table, String key, Map<String, ByteIterator> values) {
 
     try {
@@ -635,5 +632,23 @@ public class CassandraCQLClient extends DB {
 
     return Status.ERROR;
   }
+
+@Override
+public Status read(String table, String key, Set<String> fields, HashMap<String, ByteIterator> result) {
+	// TODO Auto-generated method stub
+	return null;
+}
+
+@Override
+public Status update(String table, String key, HashMap<String, ByteIterator> values) {
+	// TODO Auto-generated method stub
+	return null;
+}
+
+@Override
+public Status insert(String table, String key, HashMap<String, ByteIterator> values) {
+	// TODO Auto-generated method stub
+	return null;
+}
 
 }

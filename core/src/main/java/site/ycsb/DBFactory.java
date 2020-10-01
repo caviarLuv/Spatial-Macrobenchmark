@@ -35,6 +35,7 @@ public final class DBFactory {
     GeoDB ret;
 
     try {
+    	System.out.println("DBFactory: " + dbname);
       Class dbclass = classLoader.loadClass(dbname);
 
       ret = (GeoDB) dbclass.newInstance();

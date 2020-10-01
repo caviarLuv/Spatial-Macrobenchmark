@@ -18,5 +18,5 @@
 /**
  * The YCSB generator package.
  */
-package com.yahoo.ycsb.generator.geo;
+package site.ycsb.generator.geo;
 

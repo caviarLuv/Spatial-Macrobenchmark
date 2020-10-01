@@ -524,11 +524,12 @@ public class MongoDbClient extends GeoDB {
 
         return Status.OK;
       }
-
+      System.out.println("$$$$$I am going to insert");
       generator.putIncidentsDocument(key, queryResult.toJson());
       System.out.println("Key : " + key + " Query Result :" + queryResult.toJson());
       generator.buildGeoInsertDocument();
       int inserts = (int) Math.round(recordCount/Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT))-1;
+      System.out.println(inserts+" documents to be inserted........");
       for (double i = inserts; i > 0; i--) {
         HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
         geoInsert(table, cells, generator);
@@ -551,6 +552,7 @@ public class MongoDbClient extends GeoDB {
   @Override
   public Status geoLoad(String table1, String table2, String table3, ParameterGenerator generator, Double recordCount) {
     try {
+    	System.out.println(table1+" "+ table2 + " " + table3+"\n\n\n\n\n\n\n\n\n\n\n");
       if(geoLoad(table1, generator) == Status.ERROR) {
         return Status.ERROR;
       }
@@ -644,6 +646,7 @@ public class MongoDbClient extends GeoDB {
       MongoCollection<Document> collection = database.getCollection(table);
       String key = gen.getGeoPredicate().getDocid();
       String value = gen.getGeoPredicate().getValue();
+      System.out.println("\n\n*****key: " + key + "   value: " + value);
       Document toInsert = new Document("OBJECTID", key);
       DBObject body = (DBObject) JSON.parse(value);
       toInsert.put(key, body);
