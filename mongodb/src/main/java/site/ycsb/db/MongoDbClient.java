@@ -507,7 +507,7 @@ public class MongoDbClient extends GeoDB {
 
   @Override
   public Status geoLoad(String table, ParameterGenerator generator, Double recordCount) {
-
+/*
     try {
       String key = generator.getIncidentsIdRandom();
       MongoCollection<Document> collection = database.getCollection(table);
@@ -529,7 +529,7 @@ public class MongoDbClient extends GeoDB {
       System.out.println("Key : " + key + " Query Result :" + queryResult.toJson());
       generator.buildGeoInsertDocument();
       int inserts = (int) Math.round(recordCount/Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT))-1;
-      System.out.println(inserts+" documents to be inserted........");
+      System.out.println("\n" + recordCount + "    " + inserts+" documents to be inserted........");
       for (double i = inserts; i > 0; i--) {
         HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
         geoInsert(table, cells, generator);
@@ -539,8 +539,12 @@ public class MongoDbClient extends GeoDB {
       System.err.println(e.toString());
     }
     return Status.ERROR;
+    */
+   return geoLoad(table, generator);
   }
   
+
+
   /** 
    * A geoLoad that loads ENTIRE multiple tables.
    * @param table1
@@ -579,6 +583,7 @@ public class MongoDbClient extends GeoDB {
    */
   private Status geoLoad(String table, ParameterGenerator generator) {
     try {
+      System.out.println("macro");
       MongoCollection<Document> collection = database.getCollection(table);
       
       // Load EVERY document of the collection
@@ -695,6 +700,7 @@ public class MongoDbClient extends GeoDB {
       String updateFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
       JSONObject updateFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
 
+      System.out.println(updateFieldName + " >>>>> " + updateFieldValue.toString());
       HashMap<String, Object> updateFields = new ObjectMapper().readValue(updateFieldValue.toString(), HashMap.class);
       Document refPoint = new Document(updateFields);
       Document query = new Document().append("properties.OBJECTID", key);
@@ -723,7 +729,7 @@ public class MongoDbClient extends GeoDB {
       MongoCollection<Document> collection = database.getCollection(table);
       String nearFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
       JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
-
+      System.out.println(nearFieldName + ", " + nearFieldValue.toString());
       HashMap<String, Object> nearFields = new ObjectMapper().readValue(nearFieldValue.toString(), HashMap.class);
       Document refPoint = new Document(nearFields);
      // Document query = new Document("properties.OBJECTID", key);
@@ -741,6 +747,7 @@ public class MongoDbClient extends GeoDB {
       Document queryResult = findIterable.first();
 
       if (queryResult != null) {
+         System.out.println(queryResult.toJson());
         geoFillMap(result, queryResult);
       }
       return queryResult != null ? Status.OK : Status.NOT_FOUND;

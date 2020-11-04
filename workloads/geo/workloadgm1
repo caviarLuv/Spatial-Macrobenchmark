@@ -1,5 +1,5 @@
 
-recordcount=80
+recordcount=5
 operationcount=120
 
 # not for geo
@@ -11,7 +11,7 @@ scanproportion=0
 insertproportion=0
 
 
-workload=com.yahoo.ycsb.workloads.geo.GeoWorkload
+workload=site.ycsb.workloads.geo.GeoWorkload
 
 
 # Workload settings for geo

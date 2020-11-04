@@ -285,6 +285,7 @@ public abstract class ParameterGenerator {
     geoPredicate.setValue(docBody);
     DataFilter queryPredicate = new DataFilter();
     queryPredicate.setName(GEO_FIELD_INCIDENTS_GEOMETRY);
+   // System.out.println(storageKey + ": " + geoPredicate.getValue());
     JSONObject obj = new JSONObject(geoPredicate.getValue());
     JSONObject jobj = (JSONObject) obj.get("geometry");
     queryPredicate.setValueA(jobj);
@@ -1207,7 +1208,7 @@ public abstract class ParameterGenerator {
 			//Only enabling z2 indexing
 			sft.getUserData().put("geomesa.indices.enabled", "z2");
 			//Generating UUID as Feature ID
-			sft.getUserData().put("geomesa.fid.uuid", "true");
+			//sft.getUserData().put("geomesa.fid.uuid", "true");
 		}
 		return sft;
 	}

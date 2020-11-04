@@ -1,0 +1,48 @@
+DBFactory: site.ycsb.db.CassandraGeomesaClient
+Key=cassandra.contact.point   value=127.0.0.1:9042
+Key=cassandra.catalog   value=incidents
+Key=cassandra.keyspace   value=grafittidb
+GEO_NEAR
+near query: incidents:::29016=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.94363306217707,33.41948895121783],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29019=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9441,33.4348],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29022=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.88490381880484,33.39285945309332],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29025=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9163,33.4127],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29028=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9039,33.3568],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29031=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.93976928276665,33.39749177359137],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29034=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9424,33.4351],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29037=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.94023464583097,33.39210272791601],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29040=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9415,33.43],"type":"Point"}
+GEO_NEAR
+near query: incidents:::29043=<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|<null>|{"coordinates":[-111.9409,33.4343],"type":"Point"}
+[OVERALL], RunTime(ms), 5422
+[OVERALL], Throughput(ops/sec), 1.8443378827001107
+[TOTAL_GCS_PS_Scavenge], Count, 9
+[TOTAL_GC_TIME_PS_Scavenge], Time(ms), 102
+[TOTAL_GC_TIME_%_PS_Scavenge], Time(%), 1.8812246403541129
+[TOTAL_GCS_PS_MarkSweep], Count, 2
+[TOTAL_GC_TIME_PS_MarkSweep], Time(ms), 74
+[TOTAL_GC_TIME_%_PS_MarkSweep], Time(%), 1.364810033198082
+[TOTAL_GCs], Count, 11
+[TOTAL_GC_TIME], Time(ms), 176
+[TOTAL_GC_TIME_%], Time(%), 3.246034673552195
+[CLEANUP], Operations, 1
+[CLEANUP], AverageLatency(us), 8788.0
+[CLEANUP], MinLatency(us), 8784
+[CLEANUP], MaxLatency(us), 8791
+[CLEANUP], 95thPercentileLatency(us), 8791
+[CLEANUP], 99thPercentileLatency(us), 8791
+[GEO_NEAR], Operations, 10
+[GEO_NEAR], AverageLatency(us), 282793.6
+[GEO_NEAR], MinLatency(us), 68096
+[GEO_NEAR], MaxLatency(us), 1676287
+[GEO_NEAR], 95thPercentileLatency(us), 1676287
+[GEO_NEAR], 99thPercentileLatency(us), 1676287
+[GEO_NEAR], Return=OK, 10

@@ -1,40 +1,45 @@
 package site.ycsb.db;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Properties;
+import java.util.Random;
 
 import site.ycsb.ByteIterator;
 import site.ycsb.DBException;
-import site.ycsb.DBFactory;
 import site.ycsb.GeoDB;
 import site.ycsb.Status;
 import site.ycsb.generator.geo.ParameterGenerator;
+import site.ycsb.workloads.geo.GeoWorkload;
 
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
+import org.geotools.data.DataUtilities;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Query;
 import org.geotools.data.Transaction;
+import org.geotools.data.collection.SpatialIndexFeatureCollection;
+import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
+import org.geotools.geojson.feature.FeatureJSON;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.opengis.feature.simple.SimpleFeatureType;
-import org.locationtech.geomesa.utils.interop.SimpleFeatureTypes;
+import org.opengis.filter.Filter;
 import org.opengis.feature.simple.SimpleFeature;
-import org.geotools.util.factory.Hints;
-import org.locationtech.geomesa.index.geotools.GeoMesaDataStore;
+import org.locationtech.geomesa.index.conf.QueryHints;
+
+import org.locationtech.geomesa.process.query.KNearestNeighborSearchProcess;
 
 public class CassandraGeomesaClient extends GeoDB {
 
@@ -43,9 +48,9 @@ public class CassandraGeomesaClient extends GeoDB {
 	 * {@link #cleanup()}.
 	 */
 	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
-	  /** Used to include a field in a response. */
-	  private static final Integer INCLUDE = Integer.valueOf(1);
-	  
+	/** Used to include a field in a response. */
+	private static final Integer INCLUDE = Integer.valueOf(1);
+
 	private static DataStore datastore;
 	private SimpleFeatureType sft;
 
@@ -66,16 +71,16 @@ public class CassandraGeomesaClient extends GeoDB {
 			Properties props = getProperties();
 			String host = props.getProperty("host", "localhost");
 			String port = props.getProperty("port", "9042");
-			String keyspace = props.getProperty("cassandra.keyspace", "grafittidb");
+			String keyspace = props.getProperty("cassandra.keyspace", "testdb");
 			String contactpoint = host + ":" + port;
 
 			Map<String, String> parameters = new HashMap<>();
-			parameters.put("cassandra.contact.point", "127.0.0.1:9042");
+			parameters.put("cassandra.contact.point", contactpoint);
 			parameters.put("cassandra.keyspace", keyspace);
-			parameters.put("cassandra.catalog", "ycsb");
-			for(Entry<String, String> entry: parameters.entrySet()) {
-	            System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
-	        }
+			parameters.put("cassandra.catalog", "incidents");
+			for (Entry<String, String> entry : parameters.entrySet()) {
+				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
+			}
 			try {
 				datastore = DataStoreFinder.getDataStore(parameters);
 				if (datastore == null) {
@@ -92,7 +97,25 @@ public class CassandraGeomesaClient extends GeoDB {
 	 */
 	@Override
 	public void cleanup() throws DBException {
-		datastore.dispose();
+		if (INIT_COUNT.decrementAndGet() == 0) {
+			try {
+				datastore.dispose();
+			} catch (Exception e) {
+				e.printStackTrace();
+				return;
+			} finally {
+				datastore = null;
+			}
+		}
+	}
+	
+	
+	private String convertByteToHex(byte[] ary) {
+		StringBuilder s = new StringBuilder();
+		for(byte b : ary) {
+			s.append(String.format("%02x", b));
+		}
+		return s.toString();
 	}
 
 	/**
@@ -108,23 +131,49 @@ public class CassandraGeomesaClient extends GeoDB {
 	 * Objective (tentative): 1. load from json 2. parse data 3. create
 	 * SimpleFeatureType 4. create Feature
 	 * 
-	 * Create new schema if no existing SimpleFeatureType for YCSB
 	 */
 	@Override
 	public Status geoLoad(String table, ParameterGenerator generator, Double recordCount) {
-		SimpleFeatureType sft = generator.getSimpleFeatureType();
+		// SimpleFeatureType sft = generator.getSimpleFeatureType();
 
-		try {
-			if (datastore.getSchema(sft.getTypeName()) == null) {
-				System.out.println("No schema is found for " + sft.getTypeName() +
-						"\nCreating schema...");
-				datastore.createSchema(sft);
-			}
-		} catch (IOException e1) {
-			e1.printStackTrace();
-			return Status.ERROR;
-		}
-		return Status.OK;
+		/*
+		 * try { SimpleFeatureType dbSFT = datastore.getSchema(table); if (dbSFT ==
+		 * null) { throw new IllegalStateException("No schema is found for " +
+		 * sft.getTypeName() + "\nPlease populate data before benchmarking");
+		 * //datastore.createSchema(sft); }else { //read from the datastore and load
+		 * data into memcache String key = generator.getIncidentsIdRandom(); Random rand
+		 * = new Random(); int objId =
+		 * rand.nextInt((Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT) -
+		 * Integer.parseInt(GeoWorkload.DOCS_START_VALUE)) +
+		 * 1)+Integer.parseInt(GeoWorkload.DOCS_START_VALUE); //read from geomesa Query
+		 * query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s",
+		 * objId+""))); System.out.println("Running query " +
+		 * ECQL.toCQL(query.getFilter()));
+		 * query.getHints().put(QueryHints.QUERY_INDEX(), "z2"); //((Object)
+		 * datastore).getQueryPlan(); SimpleFeature result = null; try
+		 * (FeatureReader<SimpleFeatureType, SimpleFeature> reader =
+		 * datastore.getFeatureReader(query, Transaction.AUTO_COMMIT)) { // only need
+		 * the first result from the datastore if (reader.hasNext()) { result =
+		 * reader.next(); System.out.println(DataUtilities.encodeFeature(result)); }
+		 * else { //when no result is found = no loading into memcache
+		 * System.out.println("No result is found."); return Status.OK; } } // loading
+		 * to memcache
+		 * 
+		 * FeatureJSON io = new FeatureJSON(); System.out.println("\n" +
+		 * io.toString(result)); generator.putIncidentsDocument(key,
+		 * io.toString(result));
+		 * 
+		 * // Synthesize data if needed and according to the desired size /* int inserts
+		 * = (int)
+		 * Math.round(recordCount/Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT))-1;
+		 * System.out.println("\n" + recordCount + "    " +
+		 * inserts+" documents to be inserted........"); for (double i = inserts; i > 0;
+		 * i--) { HashMap<String, ByteIterator> cells = new HashMap<String,
+		 * ByteIterator>(); geoInsert(table, cells, generator); } return Status.OK; } }
+		 * catch (Exception e) { e.printStackTrace(); } return Status.ERROR;
+		 */
+
+		return geoLoad(table, generator);
 	}
 
 	// a geoLoad for loading multiple tables, for macro-benchmark
@@ -135,7 +184,65 @@ public class CassandraGeomesaClient extends GeoDB {
 	}
 
 	/**
-	 * Private helper method to convert a GeoJSON Point document into WKT representation
+	 * Private helper method to load ALL DOCS of a generic table.
+	 * 
+	 * @param table
+	 * @param generator
+	 * @return Status
+	 */
+	private Status geoLoad(String table, ParameterGenerator generator) {
+		try {
+			FeatureJSON io = new FeatureJSON();
+			Random seed = new Random();
+			// Load EVERY document of the collection
+			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
+				// Get the next document
+				String nextDocObjId = generator.getNextId(table);
+
+				// Query database for the document
+				Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
+				FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
+						Transaction.AUTO_COMMIT);
+				SimpleFeature queryResult = reader.hasNext() ? reader.next() : null;
+				if (queryResult == null) {
+					System.out.println(table);
+					System.out.println(query);
+					System.out.println("Empty return, Please populate data first.");
+
+					return Status.OK;
+				}
+
+				// Load the document to memcached, only ONCE --> if we are on the first
+				// iteration of loading
+				if (generator.getSynthesisOffsetCols() == 1 && generator.getSynthesisOffsetRows() == 0) {
+					generator.putDocument(table, nextDocObjId, io.toString(queryResult));
+					//System.out.println("Key : " + nextDocObjId + " Query Result : " + io.toString(queryResult));
+				}
+
+				// Generate random id and Synthesize new document
+				byte[] fid = new byte[12];
+				seed.nextBytes(fid);
+				
+				String newDocBody = generator.buildGeoInsertDocument(table, Integer.parseInt(nextDocObjId),
+						convertByteToHex(fid));
+				// Add to database
+				geoInsert(table, newDocBody, generator);
+			}
+
+			return Status.OK;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println(e.toString());
+
+			return Status.ERROR;
+		}
+	}
+
+	/**
+	 * Private helper method to convert a GeoJSON Point document into WKT
+	 * representation
+	 * 
 	 * @param geom GeoJSON document
 	 * @return spatial data in WKT format
 	 */
@@ -143,19 +250,19 @@ public class CassandraGeomesaClient extends GeoDB {
 		String type = geom.getString("type");
 		String spatial = "";
 		JSONArray coordinates = geom.getJSONArray("coordinates");
-		if(type == "Point") {
-			spatial = String.format("Point( %f %f)", getX(coordinates), getY(coordinates));
+		if (type.equals("Point")) {
+			spatial = String.format("Point(%s %s)", getX(coordinates), getY(coordinates));
 		}
-		if(type == "MultiLineString") {
+		if (type.equals("MultiLineString")) {
 			spatial += "MultiLineString(";
-			for(int line = 0; line < coordinates.length(); line++) {
-				if(line != 0) {
+			for (int line = 0; line < coordinates.length(); line++) {
+				if (line != 0) {
 					spatial += ", ";
 				}
 				spatial += "(";
 				JSONArray points = coordinates.getJSONArray(line);
-				for(int point = 0; point < points.length(); point++) {
-					if(point != 0) {
+				for (int point = 0; point < points.length(); point++) {
+					if (point != 0) {
 						spatial += ", ";
 					}
 					JSONArray xypt = points.getJSONArray(point);
@@ -167,14 +274,17 @@ public class CassandraGeomesaClient extends GeoDB {
 		}
 		return spatial;
 	}
-	
-	private static double getX(JSONArray coordinates) {
-		return coordinates.getDouble(0); // x value
+
+	private static String getX(JSONArray coordinates) {
+		// return coordinates.getBigDecimal(0) + "";
+		return coordinates.getDouble(0) + ""; // x value
 	}
-	
-	private static double getY(JSONArray coordinates) {
-		return coordinates.getDouble(1); // y value
+
+	private static String getY(JSONArray coordinates) {
+		// return coordinates.getBigDecimal(1) + "";
+		return coordinates.getDouble(1) + ""; // y value
 	}
+
 	/**
 	 * Convert GeoPredicate into Feature to perform insertion through GeoMesa
 	 */
@@ -185,9 +295,12 @@ public class CassandraGeomesaClient extends GeoDB {
 		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
 		String key = gen.getGeoPredicate().getDocid();
 		String value = gen.getGeoPredicate().getValue();
+
 		JSONObject obj = new JSONObject(value);
 		JSONObject properties = null;
 		JSONObject geom = null;
+		System.out.println(obj + "\n\n");
+		System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
 		try {
 			properties = obj.getJSONObject("properties");
 			geom = obj.getJSONObject("geometry");
@@ -199,7 +312,7 @@ public class CassandraGeomesaClient extends GeoDB {
 				builder.set("type", obj.getString("type"));
 				builder.set("OBJECTID", key);
 				builder.set("INCIDENT_NUMBER", properties.getString("INCIDENT_NUMBER"));
-				//LOCATION -> _LOCATION due to Java reserved word in geomesa
+				// LOCATION -> _LOCATION due to Java reserved word in geomesa
 				builder.set("_LOCATION", properties.getString("LOCATION"));
 				builder.set("NOTIFICATION", properties.getString("NOTIFICATION"));
 				builder.set("INCIDENT_DATE", properties.getString("INCIDENT_DATE"));
@@ -207,10 +320,9 @@ public class CassandraGeomesaClient extends GeoDB {
 				builder.set("MONIKER_CLASS", properties.getString("MONIKER_CLASS"));
 				builder.set("SQ_FT", properties.getInt("SQ_FT"));
 				builder.set("PROP_TYPE", properties.getString("PROP_TYPE"));
-				if(properties.isNull("Waiver")) {
+				if (properties.isNull("Waiver")) {
 					builder.set("Waiver", "");
-				}
-				else {
+				} else {
 					builder.set("Waiver", properties.getString("Waiver"));
 				}
 				builder.set("geometry", convertGeomData(geom));
@@ -230,6 +342,56 @@ public class CassandraGeomesaClient extends GeoDB {
 		return Status.OK;
 	}
 
+	public Status geoInsert(String table, String value, ParameterGenerator gen) {
+		SimpleFeatureType sft = gen.getSimpleFeatureType();
+		// use geotool SimpleFeatureBuilder to create Feature according to FeatureType
+		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
+
+		JSONObject obj = new JSONObject(value);
+		JSONObject properties = null;
+		JSONObject geom = null;
+		System.out.println(obj + "\n\n");
+		System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
+		try {
+			properties = obj.getJSONObject("properties");
+			geom = obj.getJSONObject("geometry");
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		if (properties != null && geom != null) {
+			try {
+				builder.set("type", obj.getString("type"));
+				builder.set("OBJECTID", obj.getString("id"));
+				builder.set("INCIDENT_NUMBER", properties.getString("INCIDENT_NUMBER"));
+				// LOCATION -> _LOCATION due to Java reserved word in geomesa
+				builder.set("_LOCATION", properties.getString("_LOCATION"));
+				builder.set("NOTIFICATION", properties.getString("NOTIFICATION"));
+				builder.set("INCIDENT_DATE", properties.getString("INCIDENT_DATE"));
+				builder.set("TAG_COUNT", properties.getInt("TAG_COUNT"));
+				builder.set("MONIKER_CLASS", properties.getString("MONIKER_CLASS"));
+				builder.set("SQ_FT", properties.getInt("SQ_FT"));
+				builder.set("PROP_TYPE", properties.getString("PROP_TYPE"));
+				if (properties.isNull("Waiver")) {
+					builder.set("Waiver", "");
+				} else {
+					builder.set("Waiver", properties.getString("Waiver"));
+				}
+				builder.set("geometry", convertGeomData(geom));
+
+				// Generate UUID as the fid
+				SimpleFeature feature = builder.buildFeature(null);
+				geoInsert(sft, feature);
+			} catch (Exception e) {
+				System.out.println("Error in building SimpleFeature...");
+				e.printStackTrace();
+				return Status.ERROR;
+			}
+		} else {
+			return Status.ERROR;
+		}
+		return Status.OK;
+	  }
+	
 	/**
 	 * Helper function to write in geomesa
 	 * 
@@ -246,6 +408,8 @@ public class CassandraGeomesaClient extends GeoDB {
 			toWrite.setAttributes(feature.getAttributes());
 			toWrite.getUserData().putAll(feature.getUserData());
 			writer.write();
+
+			//System.out.println("Insert +++++++ " + DataUtilities.encodeFeature(toWrite));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return Status.ERROR;
@@ -253,84 +417,147 @@ public class CassandraGeomesaClient extends GeoDB {
 		return Status.OK;
 	}
 
-	// a geoInsert that works on multiple tables for Macro-benchmark
-	@Override
-	public Status geoInsert(String table, String value, ParameterGenerator gen) {
-		return null;
-	}
 
 	@Override
 	public Status geoUpdate(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		// System.err.println("geoUpdate not implemented");
-		return null;
+		
+		try {
+		      Random rand = new Random();
+		      int key = rand.nextInt((Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT) -
+		          Integer.parseInt(GeoWorkload.DOCS_START_VALUE)) + 1)+Integer.parseInt(GeoWorkload.DOCS_START_VALUE);
+		      String updateFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
+		      JSONObject updateFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+
+		      Filter filter = ECQL.toFilter(String.format("OBJECTID=%s", (key+"")));
+		      
+		      FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriter(table, filter,
+						Transaction.AUTO_COMMIT);
+		      if (!writer.hasNext()) {
+		        System.err.println("Document not found");
+		        return Status.NOT_FOUND;
+		      }else {
+		    	  SimpleFeature tobemodified = writer.next();
+		    	  tobemodified.setAttribute(updateFieldName, updateFieldValue);
+		      }
+		      return Status.OK;
+		    } catch (Exception e) {
+		      System.err.println(e.toString());
+		      return Status.ERROR;
+		    }
 	}
 
 	@Override
 	public Status geoNear(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		// System.err.println("geoNear not implemented");
-		return null;
+		KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
+		//// String nearFieldName =
+		//// gen.getGeoPredicate().getNestedPredicateA().getName();
+		String dockey = gen.getGeoPredicate().getDocid();
+		JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+		//// System.out.println(nearFieldName + ", " + nearFieldValue.toString());
+		SimpleFeatureCollection input = new SpatialIndexFeatureCollection();
+		// convert json to simple feature
+		SimpleFeatureType sft = gen.getSimpleFeatureType();
+		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
+		builder.set("OBJECTID", dockey);
+		builder.set("geometry", convertGeomData(nearFieldValue));
+		SimpleFeature feature = builder.buildFeature(dockey);
+		System.out.println("near query: " + DataUtilities.encodeFeature(feature));
+		((SpatialIndexFeatureCollection) input).add(feature);
+		// Obtain dataset
+		SimpleFeatureCollection data = null;
+		try (FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
+				Transaction.AUTO_COMMIT)) {
+			data = DataUtilities.collection(reader);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Status.ERROR;
+		}
+		;
+
+		SimpleFeatureCollection results = process.execute(input, data, 10, 0.0, 100000.0);
+		SimpleFeatureIterator iterator = results.features();
+		try {
+			if (iterator.hasNext()) {
+				SimpleFeature f = iterator.next();
+				System.out.println(DataUtilities.encodeFeature(f));
+			} else {
+				// return Status.NOT_FOUND;
+			}
+		} finally {
+			iterator.close();
+		}
+		return Status.OK;
 	}
 
 	/**
-	 * Build Geomesa box CQL and execute query and retrive result
-	 * bbox(x1, x2, y1, y2) 
+	 * Build Geomesa box CQL and execute query and retrive result bbox(x1, x2, y1,
+	 * y2)
 	 */
 	@Override
 	public Status geoBox(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 		String boxField = gen.getGeoPredicate().getNestedPredicateA().getName();
 		JSONArray boxFieldValue1 = gen.getGeoPredicate().getNestedPredicateA().getValueA().getJSONArray("coordinates");
-	    JSONArray boxFieldValue2 = gen.getGeoPredicate().getNestedPredicateB().getValueA().getJSONArray("coordinates");
-	    String filter = String.format("BBOX(%s, %f, %f, %f, %f)", boxField, getX(boxFieldValue1), getX(boxFieldValue2), 
-	    		getY(boxFieldValue1), getY(boxFieldValue2));
-	    System.out.println(filter);
+		JSONArray boxFieldValue2 = gen.getGeoPredicate().getNestedPredicateB().getValueA().getJSONArray("coordinates");
+		String filter = String.format("BBOX(%s, %s, %s, %s, %s)", boxField, getX(boxFieldValue1), getX(boxFieldValue2),
+				getY(boxFieldValue1), getY(boxFieldValue2));
+		System.out.println(filter);
 		try {
-			//create query
+			// create query
 			Query q = new Query(table, ECQL.toFilter(filter));
-			
-			//submit query
-			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q, Transaction.AUTO_COMMIT);
 
-			//Count number of result, removed for benchmark accuracy(?)
+			// submit query
+			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q,
+					Transaction.AUTO_COMMIT);
+
+			// Count number of result, removed for benchmark accuracy
 			/*
-			int count = 0;
-			while(reader.hasNext()) {
-				count++;
-			}
-			System.out.printf("Operation returned %d documents.", count);
-			*/
+			 * int count = 0; while(reader.hasNext()) { count++; }
+			 * 
+			 * System.out.printf("Operation returned %d documents.", count);
+			 */
+
+			return reader.hasNext() ? Status.OK : Status.NOT_FOUND;
+
 		} catch (CQLException e1) {
 			System.out.println("Error when creating filter.");
 			return Status.ERROR;
-		}catch(IOException e2) {
+		} catch (IOException e2) {
 			System.out.println("Failed to read data from Cassandra");
 			return Status.ERROR;
 		}
-		return Status.OK;
 	}
 
-	
 	@Override
 	public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 		String fieldName1 = gen.getGeoPredicate().getNestedPredicateA().getName();
-	    JSONObject intersectFieldValue2 = gen.getGeoPredicate().getNestedPredicateC().getValueA();
-	//System.out.println("\n\n\n" + convertGeomData(intersectFieldValue2));
-	    String filter = String.format("INTERSECTS(%s, %s)", table, convertGeomData(intersectFieldValue2));
-	    System.out.println(filter);
-	    try {
-	    	//create query
+		JSONObject intersectFieldValue2 = gen.getGeoPredicate().getNestedPredicateC().getValueA();
+		String filter = String.format("INTERSECTS(%s, %s)", table, convertGeomData(intersectFieldValue2));
+		// String filter = String.format("INTERSECTS(%s, %s)", table,
+		// "LineString((-111.909470 30.436378, -111.909470 35.436378))");
+		System.out.println(filter);
+		try {
+			// create query
 			Query q = new Query(table, ECQL.toFilter(filter));
-			
-			//submit query
-			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q, Transaction.AUTO_COMMIT);
 
-	    }catch(CQLException e1) {
-	    	System.out.println("Error when creating filter.");
+			// submit query
+			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q,
+					Transaction.AUTO_COMMIT);
+			/*
+			 * while(reader.hasNext()) { SimpleFeature f = reader.next();
+			 * System.out.println(String.format("%02d") + " " +
+			 * DataUtilities.encodeFeature(f)); }
+			 */
+
+			if (reader.hasNext())
+				System.out.println(DataUtilities.encodeFeature(reader.next()));
+			return reader.hasNext() ? Status.OK : Status.NOT_FOUND;
+		} catch (CQLException e1) {
+			System.out.println("Error when creating filter.");
 			return Status.ERROR;
-	    }catch(IOException e2) {
-	    	System.out.println("Failed to read data from Cassandra");
+		} catch (IOException e2) {
+			System.out.println("Failed to read data from Cassandra");
 			return Status.ERROR;
-	    }
-	    return Status.OK;
+		}
 	}
 
 	@Override
@@ -347,7 +574,7 @@ public class CassandraGeomesaClient extends GeoDB {
 		// TODO Auto-generated method stub
 		return null;
 	}
-	
+
 	/**
 	 * Not use in GeoYCSB
 	 */

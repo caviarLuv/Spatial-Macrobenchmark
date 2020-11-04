@@ -43,6 +43,21 @@
 			<groupId>org.locationtech.geomesa</groupId>
 			<artifactId>geomesa-utils_2.11</artifactId>
 		</dependency>
+		<!-- for geomesa process -->
+<!-- https://mvnrepository.com/artifact/org.locationtech.geomesa/geomesa-process-vector -->
+<dependency>
+    <groupId>org.locationtech.geomesa</groupId>
+    <artifactId>geomesa-process-vector_2.11</artifactId>
+    <version>3.0.0</version>
+</dependency>
+
+
+		<!-- https://mvnrepository.com/artifact/org.geotools/gt-geojson -->
+		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geojson</artifactId>
+			<version>24.0</version>
+		</dependency>
 		<!-- CQL driver -->
 		<dependency>
 			<groupId>com.datastax.cassandra</groupId>

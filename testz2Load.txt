@@ -1,0 +1,138 @@
+DBFactory: site.ycsb.db.CassandraGeomesaClient
+Key=cassandra.contact.point   value=127.0.0.1:9042
+Key=cassandra.catalog   value=incidents
+Key=cassandra.keyspace   value=testdb
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 4748
+4748=Feature|4748|12/29/2016-EC-4747|Alley Walls|Proactive Graffiti|2016-12-29T18:51:09.000Z|1|General|56|Residential||POINT (-111.95234884318712 33.41276022560803)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9523,33.4128]},"properties":{"type":"Feature","OBJECTID":"4748","INCIDENT_NUMBER":"12\/29\/2016-EC-4747","_LOCATION":"Alley Walls","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2016-12-29T18:51:09.000Z","TAG_COUNT":1,"MONIKER_CLASS":"General","SQ_FT":56,"PROP_TYPE":"Residential","Waiver":""},"id":"4748"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 13272
+13272=Feature|13272|2/8/2019-PC-13271|Parks|Proactive Graffiti|2019-02-08T15:33:18.000Z|5|General|6|City||POINT (-111.96051806201834 33.43695801109956)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9605,33.437]},"properties":{"type":"Feature","OBJECTID":"13272","INCIDENT_NUMBER":"2\/8\/2019-PC-13271","_LOCATION":"Parks","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2019-02-08T15:33:18.000Z","TAG_COUNT":5,"MONIKER_CLASS":"General","SQ_FT":6,"PROP_TYPE":"City","Waiver":""},"id":"13272"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 3132
+3132=Feature|3132|8/30/2016-PC-3130|Multiuse Path|Proactive Graffiti|2016-08-30T19:03:56.000Z|3|General|4|City||POINT (-111.89708819036618 33.435416524637304)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.8971,33.4354]},"properties":{"type":"Feature","OBJECTID":"3132","INCIDENT_NUMBER":"8\/30\/2016-PC-3130","_LOCATION":"Multiuse Path","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2016-08-30T19:03:56.000Z","TAG_COUNT":3,"MONIKER_CLASS":"General","SQ_FT":4,"PROP_TYPE":"City","Waiver":""},"id":"3132"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 9169
+9169=Feature|9169|10/6/2017-PC-9168|Bridges|Proactive Graffiti|2017-10-06T19:39:48.000Z|1|General|60|City||POINT (-111.94492440216244 33.378062724498804)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9449,33.3781]},"properties":{"type":"Feature","OBJECTID":"9169","INCIDENT_NUMBER":"10\/6\/2017-PC-9168","_LOCATION":"Bridges","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2017-10-06T19:39:48.000Z","TAG_COUNT":1,"MONIKER_CLASS":"General","SQ_FT":60,"PROP_TYPE":"City","Waiver":""},"id":"9169"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 7133
+7133=Feature|7133|5/31/2017-EC-7132|Rail Road Pillars|Proactive Graffiti|2017-05-31T13:18:32.000Z|2|General|20|Union Pacific||POINT (-111.94344122648835 33.43086438387717)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9434,33.4309]},"properties":{"type":"Feature","OBJECTID":"7133","INCIDENT_NUMBER":"5\/31\/2017-EC-7132","_LOCATION":"Rail Road Pillars","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2017-05-31T13:18:32.000Z","TAG_COUNT":2,"MONIKER_CLASS":"General","SQ_FT":20,"PROP_TYPE":"Union Pacific","Waiver":""},"id":"7133"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 10704
+10704=Feature|10704|3/27/2018-EC-10703|Bridges|Proactive Graffiti|2018-03-27T14:08:51.000Z|0|General|2|City||POINT (-111.89126841148327 33.41836030704625)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.8913,33.4184]},"properties":{"type":"Feature","OBJECTID":"10704","INCIDENT_NUMBER":"3\/27\/2018-EC-10703","_LOCATION":"Bridges","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2018-03-27T14:08:51.000Z","TAG_COUNT":0,"MONIKER_CLASS":"General","SQ_FT":2,"PROP_TYPE":"City","Waiver":""},"id":"10704"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 3933
+3933=Feature|3933|10/28/2016-PC-3932|Alley Walls|Proactive Graffiti|2016-10-28T21:14:16.000Z|8|Explicit|300|Residential||POINT (-111.95654456602516 33.36474095869221)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9565,33.3647]},"properties":{"type":"Feature","OBJECTID":"3933","INCIDENT_NUMBER":"10\/28\/2016-PC-3932","_LOCATION":"Alley Walls","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2016-10-28T21:14:16.000Z","TAG_COUNT":8,"MONIKER_CLASS":"Explicit","SQ_FT":300,"PROP_TYPE":"Residential","Waiver":""},"id":"3933"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 11532
+11532=Feature|11532|6/25/2018-EC-11531|Bridges|Proactive Graffiti|2018-06-25T14:20:20.000Z|1|General|5|City||POINT (-111.94091781591594 33.43198195074402)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9409,33.432]},"properties":{"type":"Feature","OBJECTID":"11532","INCIDENT_NUMBER":"6\/25\/2018-EC-11531","_LOCATION":"Bridges","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2018-06-25T14:20:20.000Z","TAG_COUNT":1,"MONIKER_CLASS":"General","SQ_FT":5,"PROP_TYPE":"City","Waiver":""},"id":"11532"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 8718
+8718=Feature|8718|8/24/2017-EC-8717|Light Pole|Proactive Graffiti|2017-08-24T16:41:10.000Z|1|General|1|City||POINT (-111.96546390084468 33.39270737835308)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9655,33.3927]},"properties":{"type":"Feature","OBJECTID":"8718","INCIDENT_NUMBER":"8\/24\/2017-EC-8717","_LOCATION":"Light Pole","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2017-08-24T16:41:10.000Z","TAG_COUNT":1,"MONIKER_CLASS":"General","SQ_FT":1,"PROP_TYPE":"City","Waiver":""},"id":"8718"}
+
+
+
+
+
+
+***** here is in load phase? 10.0
+Running query OBJECTID = 10753
+10753=Feature|10753|4/4/2018-EC-10752|Rail Road Pillars|Proactive Graffiti|2018-04-04T17:32:55.000Z|1|General|1|Union Pacific||POINT (-111.94406177562132 33.43470939879164)
+
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-111.9441,33.4347]},"properties":{"type":"Feature","OBJECTID":"10753","INCIDENT_NUMBER":"4\/4\/2018-EC-10752","_LOCATION":"Rail Road Pillars","NOTIFICATION":"Proactive Graffiti","INCIDENT_DATE":"2018-04-04T17:32:55.000Z","TAG_COUNT":1,"MONIKER_CLASS":"General","SQ_FT":1,"PROP_TYPE":"Union Pacific","Waiver":""},"id":"10753"}
+[OVERALL], RunTime(ms), 4699
+[OVERALL], Throughput(ops/sec), 2.1281123643328366
+[TOTAL_GCS_PS_Scavenge], Count, 8
+[TOTAL_GC_TIME_PS_Scavenge], Time(ms), 79
+[TOTAL_GC_TIME_%_PS_Scavenge], Time(%), 1.681208767822941
+[TOTAL_GCS_PS_MarkSweep], Count, 2
+[TOTAL_GC_TIME_PS_MarkSweep], Time(ms), 89
+[TOTAL_GC_TIME_%_PS_MarkSweep], Time(%), 1.8940200042562245
+[TOTAL_GCs], Count, 10
+[TOTAL_GC_TIME], Time(ms), 168
+[TOTAL_GC_TIME_%], Time(%), 3.5752287720791656
+[CLEANUP], Operations, 1
+[CLEANUP], AverageLatency(us), 17032.0
+[CLEANUP], MinLatency(us), 17024
+[CLEANUP], MaxLatency(us), 17039
+[CLEANUP], 95thPercentileLatency(us), 17039
+[CLEANUP], 99thPercentileLatency(us), 17039
+[GEO_LOAD], Operations, 10
+[GEO_LOAD], AverageLatency(us), 225054.4
+[GEO_LOAD], MinLatency(us), 39456
+[GEO_LOAD], MaxLatency(us), 1612799
+[GEO_LOAD], 95thPercentileLatency(us), 1612799
+[GEO_LOAD], 99thPercentileLatency(us), 1612799
+[GEO_LOAD], Return=OK, 10
