@@ -2,6 +2,8 @@ package site.ycsb.db;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -14,6 +16,7 @@ import site.ycsb.ByteIterator;
 import site.ycsb.DBException;
 import site.ycsb.GeoDB;
 import site.ycsb.Status;
+import site.ycsb.StringByteIterator;
 import site.ycsb.generator.geo.ParameterGenerator;
 import site.ycsb.workloads.geo.GeoWorkload;
 
@@ -35,6 +38,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.filter.Filter;
 import org.opengis.feature.simple.SimpleFeature;
 import org.locationtech.geomesa.index.conf.QueryHints;
@@ -173,7 +177,9 @@ public class CassandraGeomesaClient extends GeoDB {
 		 * catch (Exception e) { e.printStackTrace(); } return Status.ERROR;
 		 */
 
-		return geoLoad(table, generator);
+		if (geoLoad(table, generator) == Status.ERROR) return Status.ERROR;
+		generator.incrementSynthesisOffset();
+		return Status.OK;
 	}
 
 	// a geoLoad for loading multiple tables, for macro-benchmark
@@ -200,7 +206,10 @@ public class CassandraGeomesaClient extends GeoDB {
 				String nextDocObjId = generator.getNextId(table);
 
 				// Query database for the document
-				Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
+				////Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
+				//test if fid facilatate search
+				Query query = new Query(table, ECQL.toFilter(String.format("fid=%s", nextDocObjId)));
+				
 				FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
 						Transaction.AUTO_COMMIT);
 				SimpleFeature queryResult = reader.hasNext() ? reader.next() : null;
@@ -438,6 +447,7 @@ public class CassandraGeomesaClient extends GeoDB {
 		      }else {
 		    	  SimpleFeature tobemodified = writer.next();
 		    	  tobemodified.setAttribute(updateFieldName, updateFieldValue);
+		    	  writer.write();
 		      }
 		      return Status.OK;
 		    } catch (Exception e) {
@@ -481,7 +491,7 @@ public class CassandraGeomesaClient extends GeoDB {
 				SimpleFeature f = iterator.next();
 				System.out.println(DataUtilities.encodeFeature(f));
 			} else {
-				// return Status.NOT_FOUND;
+				return Status.NOT_FOUND;
 			}
 		} finally {
 			iterator.close();
@@ -562,10 +572,51 @@ public class CassandraGeomesaClient extends GeoDB {
 
 	@Override
 	public Status geoScan(String table, Vector<HashMap<String, ByteIterator>> result, ParameterGenerator gen) {
-		// System.err.println("geoScan not implemented");
-		return null;
-	}
+		String startkey = gen.getIncidentIdWithDistribution();
+	    int recordcount = gen.getRandomLimit();
+	    try {
+	      Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", startkey)));
+	      query.setMaxFeatures(recordcount);
+	      FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
+					Transaction.AUTO_COMMIT);
+	      
+	      if (!reader.hasNext()) {
+		        System.err.println("Nothing found in scan for key " + startkey);
+		        return Status.ERROR;
+		  }
+	      result.ensureCapacity(recordcount);
 
+	      while (reader.hasNext()) {
+	        HashMap<String, ByteIterator> resultMap =
+	            new HashMap<String, ByteIterator>();
+
+	        SimpleFeature obj = reader.next();
+	        geoFillMap(resultMap, obj);
+	        result.add(resultMap);
+	      }
+	      reader.close();
+	      return Status.OK;
+	    } catch (Exception e) {
+	      System.err.println(e.toString());
+	      return Status.ERROR;
+	    } 
+	}
+	
+	
+
+//need to test
+	  protected void geoFillMap(Map<String, ByteIterator> resultMap, SimpleFeature obj) {
+		  List<AttributeDescriptor> fieldNames = obj.getFeatureType().getAttributeDescriptors();
+		  Iterator<AttributeDescriptor> i = fieldNames.iterator();
+	    while(i.hasNext()) { 
+	      String value = "null";
+	      String key = i.next().getLocalName();
+	      if (obj.getAttribute(key) != null) {
+	        value = obj.getAttribute(key).toString();
+	      }
+	      resultMap.put(key, new StringByteIterator(value));
+	    }
+	  }
 	/**
 	 * Not use in GeoYCSB
 	 */
