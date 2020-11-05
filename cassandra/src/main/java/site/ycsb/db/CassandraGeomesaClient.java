@@ -206,9 +206,7 @@ public class CassandraGeomesaClient extends GeoDB {
 				String nextDocObjId = generator.getNextId(table);
 
 				// Query database for the document
-				////Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
-				//test if fid facilatate search
-				Query query = new Query(table, ECQL.toFilter(String.format("fid=%s", nextDocObjId)));
+				Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
 				
 				FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
 						Transaction.AUTO_COMMIT);
