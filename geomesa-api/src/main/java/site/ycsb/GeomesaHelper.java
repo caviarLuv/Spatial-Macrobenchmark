@@ -182,8 +182,8 @@ public class GeomesaHelper {
 		parameters.put("cassandra.catalog", catalog);
 		*/
 		Map<String, String> parameters = new HashMap<String, String>();
-		parameters.put("cassandra.contact.point", "3.86.161.219:9042");
-		parameters.put("cassandra.keyspace", "grafittidb");
+		parameters.put("cassandra.contact.point", "127.0.0.1:9042");
+		parameters.put("cassandra.keyspace", "testdb");
 		parameters.put("cassandra.catalog", "incidents");
 		/*
 		for(Entry<String, String> entry: parameters.entrySet()) {
@@ -222,11 +222,11 @@ public class GeomesaHelper {
 
                     // if you want to set the feature ID, you have to cast to an implementation class
                     // and add the USE_PROVIDED_FID hint to the user data
-                     ((FeatureIdImpl) toWrite.getIdentifier()).setID(feature.getID());
-                     toWrite.getUserData().put(Hints.USE_PROVIDED_FID, Boolean.TRUE);
+                     //((FeatureIdImpl) toWrite.getIdentifier()).setID(feature.getID());
+                    // toWrite.getUserData().put(Hints.USE_PROVIDED_FID, Boolean.TRUE);
 
                     // alternatively, you can use the PROVIDED_FID hint directly
-                    // toWrite.getUserData().put(Hints.PROVIDED_FID, feature.getID());
+                     toWrite.getUserData().put(Hints.PROVIDED_FID, feature.getID());
 
                     // if no feature ID is set, a UUID will be generated for you
 
