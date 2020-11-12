@@ -1200,7 +1200,7 @@ public abstract class ParameterGenerator {
 	      break;
 	    }
 	    
-	    return getVal(prefix);
+	    return getVal(prefix + GEO_METAFIELD_INSERTDOC + GEO_SYSTEMFIELD_DELIMITER + docKey);
 	  }
   
   //-------------------Geomesa related------------------------
