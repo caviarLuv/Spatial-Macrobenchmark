@@ -1186,6 +1186,23 @@ public abstract class ParameterGenerator {
     return GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_SHAPE_AREA;
   }
   
+  public String getDocument(String table, String docKey) throws Exception {
+	    String prefix = "";   // set prefix & storagecount depending on table
+	    switch(table) {
+	    case GEO_DOCUMENT_PREFIX_SCHOOLS:
+	      prefix = GEO_DOCUMENT_PREFIX_SCHOOLS + GEO_SYSTEMFIELD_DELIMITER;
+	      break;
+	    case GEO_DOCUMENT_PREFIX_BUILDINGS:
+	      prefix = GEO_DOCUMENT_PREFIX_BUILDINGS + GEO_SYSTEMFIELD_DELIMITER;
+	      break;
+	    default:
+	      prefix = GEO_DOCUMENT_PREFIX_INCIDENTS + GEO_SYSTEMFIELD_DELIMITER;
+	      break;
+	    }
+	    
+	    return getVal(prefix);
+	  }
+  
   //-------------------Geomesa related------------------------
   public SimpleFeatureType getSimpleFeatureType() {
 		if (sft == null) {
