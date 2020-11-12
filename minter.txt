@@ -1,0 +1,4 @@
+DBFactory: site.ycsb.db.CassandraGeomesaClient
+Key=cassandra.contact.point   value=127.0.0.1:9042
+Key=cassandra.catalog   value=incidents
+Key=cassandra.keyspace   value=testdb
