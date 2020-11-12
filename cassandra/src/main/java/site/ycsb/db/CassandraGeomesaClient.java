@@ -52,6 +52,8 @@ public class CassandraGeomesaClient extends GeoDB {
 	 * {@link #cleanup()}.
 	 */
 	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
+	
+	private static final AtomicInteger PRELOAD_COUNT = new AtomicInteger(1);
 	/** Used to include a field in a response. */
 	private static final Integer INCLUDE = Integer.valueOf(1);
 
@@ -112,11 +114,10 @@ public class CassandraGeomesaClient extends GeoDB {
 			}
 		}
 	}
-	
-	
+
 	private String convertByteToHex(byte[] ary) {
 		StringBuilder s = new StringBuilder();
-		for(byte b : ary) {
+		for (byte b : ary) {
 			s.append(String.format("%02x", b));
 		}
 		return s.toString();
@@ -177,9 +178,33 @@ public class CassandraGeomesaClient extends GeoDB {
 		 * catch (Exception e) { e.printStackTrace(); } return Status.ERROR;
 		 */
 
-		if (geoLoad(table, generator) == Status.ERROR) return Status.ERROR;
+		// check if in the first geoload call, if so, preload original dataset into
+		// memcached, synchronized to ensure data is completely loaded prior to synthesis
+		synchronized (INCLUDE) {
+			if(PRELOAD_COUNT.compareAndSet(1, 0)) {preLoad(table, generator);}
+		}
+
+		if (geoLoad(table, generator) == Status.ERROR)
+			return Status.ERROR;
 		generator.incrementSynthesisOffset();
+		
 		return Status.OK;
+	}
+
+	public void preLoad(String table, ParameterGenerator generator) {
+		System.out.println("PRELOADING HERE");
+		FeatureJSON io = new FeatureJSON();
+		try {
+			// obtain full dataset
+			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
+					Transaction.AUTO_COMMIT);
+			while (reader.hasNext()) {
+				SimpleFeature data = reader.next();
+				generator.putDocument(table, data.getID(), io.toString(data));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	// a geoLoad for loading multiple tables, for macro-benchmark
@@ -198,39 +223,23 @@ public class CassandraGeomesaClient extends GeoDB {
 	 */
 	private Status geoLoad(String table, ParameterGenerator generator) {
 		try {
-			FeatureJSON io = new FeatureJSON();
 			Random seed = new Random();
 			// Load EVERY document of the collection
 			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
-				// Get the next document
-				String nextDocObjId = generator.getNextId(table);
-
-				// Query database for the document
-				Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", nextDocObjId)));
-				
-				FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
-						Transaction.AUTO_COMMIT);
-				SimpleFeature queryResult = reader.hasNext() ? reader.next() : null;
-				if (queryResult == null) {
+				// Get the random document from memcached
+				String docKey = generator.getNextId(table);
+				String value = generator.getDocument(table, docKey);
+				if (value == null) {
 					System.out.println(table);
-					System.out.println(query);
+					System.out.println(String.format("OBJECTID=%s", docKey));
 					System.out.println("Empty return, Please populate data first.");
-
 					return Status.OK;
 				}
-
-				// Load the document to memcached, only ONCE --> if we are on the first
-				// iteration of loading
-				if (generator.getSynthesisOffsetCols() == 1 && generator.getSynthesisOffsetRows() == 0) {
-					generator.putDocument(table, nextDocObjId, io.toString(queryResult));
-					//System.out.println("Key : " + nextDocObjId + " Query Result : " + io.toString(queryResult));
-				}
-
 				// Generate random id and Synthesize new document
 				byte[] fid = new byte[12];
 				seed.nextBytes(fid);
-				
-				String newDocBody = generator.buildGeoInsertDocument(table, Integer.parseInt(nextDocObjId),
+
+				String newDocBody = generator.buildGeoInsertDocument(table, Integer.parseInt(docKey),
 						convertByteToHex(fid));
 				// Add to database
 				geoInsert(table, newDocBody, generator);
@@ -397,8 +406,8 @@ public class CassandraGeomesaClient extends GeoDB {
 			return Status.ERROR;
 		}
 		return Status.OK;
-	  }
-	
+	}
+
 	/**
 	 * Helper function to write in geomesa
 	 * 
@@ -416,7 +425,7 @@ public class CassandraGeomesaClient extends GeoDB {
 			toWrite.getUserData().putAll(feature.getUserData());
 			writer.write();
 
-			//System.out.println("Insert +++++++ " + DataUtilities.encodeFeature(toWrite));
+			// System.out.println("Insert +++++++ " + DataUtilities.encodeFeature(toWrite));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return Status.ERROR;
@@ -424,34 +433,35 @@ public class CassandraGeomesaClient extends GeoDB {
 		return Status.OK;
 	}
 
-
 	@Override
 	public Status geoUpdate(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		
-		try {
-		      Random rand = new Random();
-		      int key = rand.nextInt((Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT) -
-		          Integer.parseInt(GeoWorkload.DOCS_START_VALUE)) + 1)+Integer.parseInt(GeoWorkload.DOCS_START_VALUE);
-		      String updateFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
-		      JSONObject updateFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
 
-		      Filter filter = ECQL.toFilter(String.format("OBJECTID=%s", (key+"")));
-		      
-		      FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriter(table, filter,
-						Transaction.AUTO_COMMIT);
-		      if (!writer.hasNext()) {
-		        System.err.println("Document not found");
-		        return Status.NOT_FOUND;
-		      }else {
-		    	  SimpleFeature tobemodified = writer.next();
-		    	  tobemodified.setAttribute(updateFieldName, updateFieldValue);
-		    	  writer.write();
-		      }
-		      return Status.OK;
-		    } catch (Exception e) {
-		      System.err.println(e.toString());
-		      return Status.ERROR;
-		    }
+		try {
+			Random rand = new Random();
+			int key = rand.nextInt(
+					(Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT) - Integer.parseInt(GeoWorkload.DOCS_START_VALUE))
+							+ 1)
+					+ Integer.parseInt(GeoWorkload.DOCS_START_VALUE);
+			String updateFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
+			JSONObject updateFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+
+			Filter filter = ECQL.toFilter(String.format("OBJECTID=%s", (key + "")));
+
+			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriter(table, filter,
+					Transaction.AUTO_COMMIT);
+			if (!writer.hasNext()) {
+				System.err.println("Document not found");
+				return Status.NOT_FOUND;
+			} else {
+				SimpleFeature tobemodified = writer.next();
+				tobemodified.setAttribute(updateFieldName, updateFieldValue);
+				writer.write();
+			}
+			return Status.OK;
+		} catch (Exception e) {
+			System.err.println(e.toString());
+			return Status.ERROR;
+		}
 	}
 
 	@Override
@@ -571,50 +581,46 @@ public class CassandraGeomesaClient extends GeoDB {
 	@Override
 	public Status geoScan(String table, Vector<HashMap<String, ByteIterator>> result, ParameterGenerator gen) {
 		String startkey = gen.getIncidentIdWithDistribution();
-	    int recordcount = gen.getRandomLimit();
-	    try {
-	      Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", startkey)));
-	      query.setMaxFeatures(recordcount);
-	      FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
+		int recordcount = gen.getRandomLimit();
+		try {
+			Query query = new Query(table, ECQL.toFilter(String.format("OBJECTID=%s", startkey)));
+			query.setMaxFeatures(recordcount);
+			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(query,
 					Transaction.AUTO_COMMIT);
-	      
-	      if (!reader.hasNext()) {
-		        System.err.println("Nothing found in scan for key " + startkey);
-		        return Status.ERROR;
-		  }
-	      result.ensureCapacity(recordcount);
 
-	      while (reader.hasNext()) {
-	        HashMap<String, ByteIterator> resultMap =
-	            new HashMap<String, ByteIterator>();
+			if (!reader.hasNext()) {
+				System.err.println("Nothing found in scan for key " + startkey);
+				return Status.ERROR;
+			}
+			result.ensureCapacity(recordcount);
 
-	        SimpleFeature obj = reader.next();
-	        geoFillMap(resultMap, obj);
-	        result.add(resultMap);
-	      }
-	      reader.close();
-	      return Status.OK;
-	    } catch (Exception e) {
-	      System.err.println(e.toString());
-	      return Status.ERROR;
-	    } 
+			while (reader.hasNext()) {
+				HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+
+				SimpleFeature obj = reader.next();
+				geoFillMap(resultMap, obj);
+				result.add(resultMap);
+			}
+			reader.close();
+			return Status.OK;
+		} catch (Exception e) {
+			System.err.println(e.toString());
+			return Status.ERROR;
+		}
 	}
-	
-	
 
 //need to test
-	  protected void geoFillMap(Map<String, ByteIterator> resultMap, SimpleFeature obj) {
-		  List<AttributeDescriptor> fieldNames = obj.getFeatureType().getAttributeDescriptors();
-		  Iterator<AttributeDescriptor> i = fieldNames.iterator();
-	    while(i.hasNext()) { 
-	      String value = "null";
-	      String key = i.next().getLocalName();
-	      if (obj.getAttribute(key) != null) {
-	        value = obj.getAttribute(key).toString();
-	      }
-	      resultMap.put(key, new StringByteIterator(value));
-	    }
-	  }
+	protected void geoFillMap(Map<String, ByteIterator> resultMap, SimpleFeature obj) {
+		String[] fieldNames = DataUtilities.attributeNames(obj.getFeatureType());
+		for (String key : fieldNames) {
+			String value = "null";
+			if (obj.getAttribute(key) != null) {
+				value = obj.getAttribute(key).toString();
+			}
+			resultMap.put(key, new StringByteIterator(value));
+		}
+	}
+
 	/**
 	 * Not use in GeoYCSB
 	 */
