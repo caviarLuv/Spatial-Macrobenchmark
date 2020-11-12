@@ -156,7 +156,7 @@ public class GeoWorkload extends CoreWorkload {
 
   @Override
   public boolean doInsert(GeoDB db, Object threadstate) {
-	  System.out.println("\n\n\n\n\n\n***** here is in load phase? " + recordCount);
+	  //System.out.println("\n\n\n\n\n\n***** here is in load phase? " + recordCount);
     Status status;
     status = (table2 != null && table3 != null) ? 
         db.geoLoad(table, table2, table3, (MemcachedGenerator) threadstate, recordCount)

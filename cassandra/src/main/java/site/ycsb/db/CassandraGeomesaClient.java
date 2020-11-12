@@ -315,8 +315,8 @@ public class CassandraGeomesaClient extends GeoDB {
 		JSONObject obj = new JSONObject(value);
 		JSONObject properties = null;
 		JSONObject geom = null;
-		System.out.println(obj + "\n\n");
-		System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
+		//System.out.println(obj + "\n\n");
+		//System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
 		try {
 			properties = obj.getJSONObject("properties");
 			geom = obj.getJSONObject("geometry");
@@ -366,8 +366,8 @@ public class CassandraGeomesaClient extends GeoDB {
 		JSONObject obj = new JSONObject(value);
 		JSONObject properties = null;
 		JSONObject geom = null;
-		System.out.println(obj + "\n\n");
-		System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
+		//System.out.println(obj + "\n\n");
+		//System.out.println("***" + convertGeomData(obj.getJSONObject("geometry")));
 		try {
 			properties = obj.getJSONObject("properties");
 			geom = obj.getJSONObject("geometry");
@@ -417,7 +417,7 @@ public class CassandraGeomesaClient extends GeoDB {
 	 */
 	public Status geoInsert(SimpleFeatureType sft, SimpleFeature feature) {
 		try {
-			System.out.println("Writing data...");
+			//System.out.println("Writing data...");
 			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriterAppend(sft.getTypeName(),
 					Transaction.AUTO_COMMIT);
 			SimpleFeature toWrite = writer.next();
