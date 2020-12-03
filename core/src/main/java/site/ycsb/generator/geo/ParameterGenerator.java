@@ -115,7 +115,7 @@ public abstract class ParameterGenerator {
   private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_LEN = "LEN";
   private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_WID = "WID";
   private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_GLOBALID = "GlobalID";
-  private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_SHAPE_AREA = "Shape__Area";
+  private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_SHAPE_AREA = "putDocument";
   private static final String GEO_FIELD_BUILDINGS_PROPERTIES_OBJ_SHAPE_LENGTH = "Shape__Length";
   private static final String GEO_FIELD_BUILDINGS_GEOMETRY = "geometry";
   private static final String GEO_FIELD_BUILDINGS_GEOMETRY_OBJ_TYPE = "type";
@@ -960,7 +960,7 @@ public abstract class ParameterGenerator {
       for (String intfield : intFields) {                 // set values to tokens
         if (inobj.has(intfield) && !inobj.isNull(intfield)) {
           String key = field + GEO_SYSTEMFIELD_DELIMITER + intfield;
-          tokens.put(key, String.valueOf(inobj.getInt(intfield)));
+          tokens.put(key, String.valueOf(inobj.getDouble(intfield)));
         }
       }
     }
@@ -1203,31 +1203,5 @@ public abstract class ParameterGenerator {
 	    return getVal(prefix + GEO_METAFIELD_INSERTDOC + GEO_SYSTEMFIELD_DELIMITER + docKey);
 	  }
   
-  //-------------------Geomesa related------------------------
-  public SimpleFeatureType getSimpleFeatureType() {
-		if (sft == null) {
-			StringBuilder attributes = new StringBuilder();
-			attributes.append(GEO_FIELD_INCIDENTS_TYPE + ":String,");
-			//Properties? 
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_OBJECTID + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_INCIDENT_NUMBER + ":String,");
-			//Modify LOCATION -> _LOCATION due to geomesa reserved word list
-			attributes.append("_" + GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_LOCATION + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_NOTIFICATION + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_INCIDENT_DATE + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_TAG_COUNT + ":Integer,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_MONIKER_CLASS + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_SQ_FT + ":Integer,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_PROP_TYPE + ":String,");
-			attributes.append(GEO_FIELD_INCIDENTS_PROPERTIES_OBJ_WAIVER + ":String,");
-			attributes.append("*" + GEO_FIELD_INCIDENTS_GEOMETRY + ":Point:srid=4326");
-			sft = SimpleFeatureTypes.createType("incidents", attributes.toString());
-			//Only enabling z2 indexing
-			sft.getUserData().put("geomesa.indices.enabled", "z2");
-			//Generating UUID as Feature ID
-			//sft.getUserData().put("geomesa.fid.uuid", "true");
-		}
-		return sft;
-	}
   
 }

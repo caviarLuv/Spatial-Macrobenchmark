@@ -1,6 +1,6 @@
 
-recordcount=5
-operationcount=120
+recordcount=1
+operationcount=5
 
 # not for geo
 requestdistribution=uniform
@@ -24,10 +24,10 @@ geo_scan=0
 
 # Macro benchmark operations
 # Find school with highest concentration of graffiti nearby
-geo_case_graffiti_by_schools=1.0
+geo_case_graffiti_by_schools=0.0
 
 # Find graffiti density per cell of a grid
-geo_case_graffiti_density=0.0
+geo_case_graffiti_density=1.0
 
 # Find building density per cell of a grid (high traffic area) and graffiti within top 5 areas
 geo_case_graffiti_by_high_traffic=0.0
@@ -42,11 +42,11 @@ geo_request_distribution=uniform
 geo_storage_host=localhost
 geo_storage_port=11211
 
-geo_querylimit_min = 10
+geo_querylimit_min = 1
 geo_querylimit_max = 10
 
-geo_offset_min = 10
-geo_offset_max = 10
+geo_offset_min = 1
+geo_offset_max = 1
 
 
 # Additional settings required for macro benchmarks

@@ -58,6 +58,13 @@
 			<artifactId>gt-geojson</artifactId>
 			<version>24.0</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.locationtech.jts/jts-core -->
+<dependency>
+    <groupId>org.locationtech.jts</groupId>
+    <artifactId>jts-core</artifactId>
+    <version>1.17.1</version>
+</dependency>
+		
 		<!-- CQL driver -->
 		<dependency>
 			<groupId>com.datastax.cassandra</groupId>
