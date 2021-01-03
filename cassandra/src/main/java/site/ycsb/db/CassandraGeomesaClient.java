@@ -29,6 +29,7 @@ import org.geotools.data.Transaction;
 import org.geotools.data.collection.SpatialIndexFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
+import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
@@ -40,6 +41,7 @@ import org.opengis.filter.Filter;
 import org.opengis.feature.simple.SimpleFeature;
 import org.locationtech.geomesa.index.utils.ExplainPrintln;
 import org.locationtech.geomesa.process.query.KNearestNeighborSearchProcess;
+import org.locationtech.geomesa.process.query.ProximitySearchProcess;
 
 public class CassandraGeomesaClient extends GeoDB {
 
@@ -80,6 +82,7 @@ public class CassandraGeomesaClient extends GeoDB {
 			parameters.put("cassandra.contact.point", contactpoint);
 			parameters.put("cassandra.keyspace", keyspace);
 			parameters.put("cassandra.catalog", "geoycsb");
+			parameters.put("geomesa.query.threads", "5"); //setting number of threads per query
 			for (Entry<String, String> entry : parameters.entrySet()) {
 				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
 			}
@@ -144,8 +147,8 @@ public class CassandraGeomesaClient extends GeoDB {
 		/*
 		if (geoLoad(table, generator) == Status.ERROR)
 			return Status.ERROR;
-		generator.incrementSynthesisOffset();
-		*/
+		generator.incrementSynthesisOffset();*/
+		
 		return Status.OK;
 	}
 
@@ -153,9 +156,7 @@ public class CassandraGeomesaClient extends GeoDB {
 		System.out.println("PRELOADING HERE  " + table);
 		FeatureJSON io = new FeatureJSON();
 		try {
-			// obtain full dataset
-			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
-					Transaction.AUTO_COMMIT);
+			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
 			while (reader.hasNext()) {
 				SimpleFeature data = reader.next();
 				generator.putDocument(table, data.getID(), io.toString(data));
@@ -510,13 +511,16 @@ public class CassandraGeomesaClient extends GeoDB {
 
 	@Override
 	public Status geoNear(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
+		//KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
+		ProximitySearchProcess tp = new ProximitySearchProcess();
 		//// String nearFieldName =
 		//// gen.getGeoPredicate().getNestedPredicateA().getName();
 		String dockey = gen.getGeoPredicate().getDocid();
-		JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+		//JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+		
 		//// System.out.println(nearFieldName + ", " + nearFieldValue.toString());
-		SimpleFeatureCollection input = new SpatialIndexFeatureCollection();
+		//SimpleFeatureCollection input = new SpatialIndexFeatureCollection();
+		
 		// convert json to simple feature
 		SimpleFeatureType sft;
 		try {
@@ -526,10 +530,11 @@ public class CassandraGeomesaClient extends GeoDB {
 		}
 		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
 		builder.set("OBJECTID", dockey);
-		builder.set("geometry", convertGeomData(nearFieldValue));
+		//builder.set("geometry", convertGeomData(nearFieldValue));
+		builder.set("geometry", "Point(-111.8802089256232 33.387247158935985)");
 		SimpleFeature feature = builder.buildFeature(dockey);
-		System.out.println("near query: " + DataUtilities.encodeFeature(feature));
-		((SpatialIndexFeatureCollection) input).add(feature);
+		//((SpatialIndexFeatureCollection) input).add(feature);
+		SimpleFeatureCollection input = DataUtilities.collection(feature);
 		// Obtain dataset
 		SimpleFeatureCollection data = null;
 		try (FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
@@ -538,23 +543,40 @@ public class CassandraGeomesaClient extends GeoDB {
 		} catch (IOException e) {
 			e.printStackTrace();
 			return Status.ERROR;
-		}
-		;
+		};
+		
+//		try {
+//			SimpleFeatureSource s = datastore.getFeatureSource(table);
+//			data = s.getFeatures();
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			return Status.ERROR;
+//		};
 
-		SimpleFeatureCollection results = process.execute(input, data, 10, 0.0, 100000.0);
+		long start = System.nanoTime();
+		//SimpleFeatureCollection results = process.execute(input, data, 140, 0.0, 1000.0);
+		SimpleFeatureCollection results = tp.execute(input, data, 1000.0);
+		System.out.println("**" + (System.nanoTime()-start)/1000000L);
 		SimpleFeatureIterator iterator = results.features();
+		//int count = 0;
 		try {
 			if (iterator.hasNext()) {
+				/*
+				while(iterator.hasNext()) {
 				SimpleFeature f = iterator.next();
 				System.out.println(DataUtilities.encodeFeature(f));
-				geoFillMap(result, f);
+				count++;
+				}
+				System.out.println(count);
+				//geoFillMap(result, f);	 
+			 */
+				return Status.OK;
 			} else {
 				return Status.NOT_FOUND;
 			}
 		} finally {
 			iterator.close();
 		}
-		return Status.OK;
 	}
 
 	/**
@@ -570,12 +592,12 @@ public class CassandraGeomesaClient extends GeoDB {
 				getX(boxFieldValue2), getY(boxFieldValue2));
 		System.out.println(filter);
 		try {
+			SimpleFeatureSource s = datastore.getFeatureSource(table);
 			// create query
-			Query q = new Query(table, ECQL.toFilter(filter));
-
+			//Query q = new Query(table, ECQL.toFilter(filter));
+			//long start = System.nanoTime();
 			// submit query
-			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q,
-					Transaction.AUTO_COMMIT);
+			SimpleFeatureCollection c = s.getFeatures(ECQL.toFilter(filter));
 
 			// Count number of result, removed for benchmark accuracy
 			/*
@@ -584,10 +606,15 @@ public class CassandraGeomesaClient extends GeoDB {
 			 * System.out.printf("Operation returned %d documents.", count);
 			 */
 
+			//System.out.println("\n"+(end-start)+ "ns");
+			
+			SimpleFeatureIterator reader = c.features();
 			if (reader.hasNext()) {
 				geoFillMap(result, reader.next());
+				reader.close();
 				return Status.OK;
 			} else {
+				reader.close();
 				return Status.NOT_FOUND;
 			}
 
@@ -604,34 +631,28 @@ public class CassandraGeomesaClient extends GeoDB {
 	public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 		String fieldName1 = gen.getGeoPredicate().getNestedPredicateA().getName();
 		JSONObject intersectFieldValue2 = gen.getGeoPredicate().getNestedPredicateC().getValueA();
-		String filter = String.format("INTERSECTS(%s, %s)", table, convertGeomData(intersectFieldValue2));
-		// String filter = String.format("INTERSECTS(%s, %s)", table,
-		// "LineString((-111.909470 30.436378, -111.909470 35.436378))");
-		System.out.println(filter);
+		String filter = String.format("INTERSECTS(%s, %s)", fieldName1, convertGeomData(intersectFieldValue2));
+		// String filter = String.format("INTERSECTS(%s, %s)", fieldName1,
+		// "LineString( -111.94157702764069 33.4300795967036, -111.60 33.4300795967036)");
+		
 		try {
-		      long st = System.nanoTime();
-		 
-		  
+			SimpleFeatureSource s = datastore.getFeatureSource(table);
+			
 			// create query
-			Query q = new Query(table, ECQL.toFilter(filter));
+			//Query q = new Query(table, ECQL.toFilter(filter));
 
-			//((Object) datastore).getQueryPlan(q, new ExplainPrintln(System.out));
-			// submit query
-			FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q,
-					Transaction.AUTO_COMMIT);
-			/*
-			 * while(reader.hasNext()) { SimpleFeature f = reader.next();
-			 * System.out.println(String.format("%02d") + " " +
-			 * DataUtilities.encodeFeature(f)); }
-			 */
+			SimpleFeatureCollection c = s.getFeatures(ECQL.toFilter(filter));
+			SimpleFeatureIterator reader = c.features();
 
-			long en = System.nanoTime();
-			System.out.print("Query Time=" + (en-st)/1000 + "ms");
+			//FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(q,Transaction.AUTO_COMMIT);
 			if (reader.hasNext()) {
 				//System.out.println(DataUtilities.encodeFeature(reader.next()));
 				geoFillMap(result, reader.next());
+				reader.close();
 				return Status.OK;
 			}
+			
+			reader.close();
 			return Status.NOT_FOUND;
 		} catch (CQLException e1) {
 			System.out.println("Error when creating filter.");

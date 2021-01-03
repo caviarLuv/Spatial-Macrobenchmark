@@ -1,6 +1,6 @@
 
 recordcount=1
-operationcount=1000
+operationcount=10000
 # not for geo
 requestdistribution=uniform
 readallfields=true
@@ -9,6 +9,7 @@ updateproportion=0
 scanproportion=0
 insertproportion=0
 
+threadcount=15
 
 workload=site.ycsb.workloads.geo.GeoWorkload
 
@@ -18,8 +19,8 @@ workload=site.ycsb.workloads.geo.GeoWorkload
 geo_insert=0
 geo_update=0
 geo_near=0
-geo_box=0
-geo_intersect=1
+geo_box=1
+geo_intersect=0
 geo_scan=0
 
 # zipfian, uniform, latest

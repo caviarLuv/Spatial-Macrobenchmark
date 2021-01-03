@@ -294,7 +294,7 @@ public class GeomesaHelper {
 
 		Map<String, String> parameters = new HashMap<String, String>();
 		parameters.put("cassandra.contact.point", "127.0.0.1:9042");
-		parameters.put("cassandra.keyspace", "testdb");
+		parameters.put("cassandra.keyspace", "grafittidb");
 		parameters.put("cassandra.catalog", "geoycsb");
 		/*
 		 * for(Entry<String, String> entry: parameters.entrySet()) {
@@ -358,29 +358,134 @@ public class GeomesaHelper {
 		return;
 	}
 
-	public static void near(DataStore datastore, String table) {
+	public static void near1(DataStore datastore, String table) {
 		try {
 			long start = System.nanoTime();
 			SimpleFeatureSource s = datastore.getFeatureSource(table);
-			SimpleFeatureCollection data = s.getFeatures();
+			//SimpleFeatureCollection data = s.getFeatures();
 			KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
 			SimpleFeatureCollection input = DataUtilities.collection(DataUtilities.createFeature(incidentSchema(), 
-					"null|null|null|null|null|null|null|null|null|null|null|Point(-111.94157702764069 33.4300795967036))"));
+					"null|null|null|null|null|null|null|null|null|null|null|Point(-111.94157702764069 33.4300795967036)"));
+
+			//			SimpleFeatureBuilder builder = new SimpleFeatureBuilder(incidentSchema());
+//			builder.set("OBJECTID", "1");
+//			builder.set("geometry", "Point(-111.94157702764069 33.4300795967036)");
+//			SimpleFeature feature = builder.buildFeature("1");
+//			input = DataUtilities.collection(feature);
+			
+			SimpleFeatureCollection data = null;
+			try (FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
+					Transaction.AUTO_COMMIT)) {
+				data = DataUtilities.collection(reader);
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new RuntimeException("ERROR");
+			};
+			
+			System.out.println("start");
 			SimpleFeatureCollection results = process.execute(input, data, 5, 0.0, 100000.0);
+			System.out.println("end");
 			System.out.println((System.nanoTime()-start)/1000000L + "ms");
 			SimpleFeatureIterator iterator = results.features();
 		
-				while (iterator.hasNext()) {
-					SimpleFeature f = iterator.next();
-					System.out.println(DataUtilities.encodeFeature(f));
-
-				} 
+//				while (iterator.hasNext()) {
+//					SimpleFeature f = iterator.next();
+//					System.out.println(DataUtilities.encodeFeature(f));
+//
+//				} 
+			long end = System.nanoTime();
+			System.out.println((end-start));
 				iterator.close();
 		} catch (IOException e2) {
 			// TODO Auto-generated catch block
 			e2.printStackTrace();
 		}
 	}
+	public static void near(DataStore datastore, String table) {
+		try {
+			long start = System.nanoTime();
+			SimpleFeatureSource s = datastore.getFeatureSource(table);
+			
+// Retrieving features using SimpleDataSource
+			SimpleFeatureCollection data = s.getFeatures(new Query(table));  
+			
+//Retrieving using FeatureReader
+//			SimpleFeatureCollection data = null;
+//			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
+//					Transaction.AUTO_COMMIT)){
+//				data = DataUtilities.collection(reader);
+//			}
+			
+			KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
+			SimpleFeatureBuilder builder = new SimpleFeatureBuilder(incidentSchema());
+			builder.set("OBJECTID", "1");
+			builder.set("geometry", "Point(-111.94157702764069 33.4300795967036)");
+			SimpleFeature feature = builder.buildFeature("1");
+			SimpleFeatureCollection input = DataUtilities.collection(feature);
+			System.out.println("start");
+			SimpleFeatureCollection results = process.execute(input, data, 5, 0.0, 100000.0);
+			System.out.println("end");
+			System.out.println((System.nanoTime()-start)/1000000L + "ms");
+			SimpleFeatureIterator iterator = results.features();
+		
+//				while (iterator.hasNext()) {
+//					SimpleFeature f = iterator.next();
+//					System.out.println(DataUtilities.encodeFeature(f));
+//
+//				} 
+			long end = System.nanoTime();
+			System.out.println((end-start));
+				iterator.close();
+		} catch (IOException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+	}
+	
+	
+	public static long runQueryReader(DataStore ds, String table, String filter) {
+		try {
+			 //create query
+			Query q = new Query(table, ECQL.toFilter(filter));
+			long start = System.nanoTime();
+			// submit query
+			FeatureReader<SimpleFeatureType, SimpleFeature> reader = ds.getFeatureReader(q,Transaction.AUTO_COMMIT);
+			long timeElapse = System.nanoTime() - start;	//stop timer
+			
+			System.out.println(String.format("		Time(Reader): %s ms", Long.toString(timeElapse/1000000L))); //convert into ms
+			while (reader.hasNext()) {
+				System.out.println(reader.next().getID());
+			}
+			reader.close();
+
+			return  timeElapse/1000000L;
+		} catch (Exception e1) {
+		e1.printStackTrace();
+		}
+		return -1L;
+	}
+	
+	public static long runQuerySource(DataStore ds, String table, String filter) {
+		try {
+			long start = System.nanoTime();
+			SimpleFeatureSource s = ds.getFeatureSource(table);
+			// submit query
+			SimpleFeatureCollection c = s.getFeatures(ECQL.toFilter(filter));
+			
+			SimpleFeatureIterator reader = c.features();
+			long timeElapse = System.nanoTime() - start; //stop timer
+			System.out.println(String.format("Time(Source): %s ms", Long.toString(timeElapse/1000000L))); //convert into ms
+			while (reader.hasNext()) {
+				System.out.println(reader.next().getID());
+			}
+			reader.close();
+			return  timeElapse/1000000L;
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		}
+		return -1L;
+	}
+	
 	/**
 	 * 
 	 * @param args arg[0] = datastore name arg[1] = table name arg[2] = file path
@@ -415,34 +520,38 @@ public class GeomesaHelper {
 //		insertData(ds, sft, generateFeatures(sft, args[2]));
 
 		
-		String filter = "BBOX(geometry, -111.9381, -111.27267945114956, 33.3851, 33.50085491674626)";
+		String filter = "INTERSECTS(incidents, MultiLineString(( -111.91662294557443 33.3964260528521, -111.81731649209647 33.57158772492773), (-111.53584670300357 33.88361677560589, -111.0710866287766 33.47761102293026)))";
+		double initial = -111.8802089256232;
+		
 		String table = "incidents";
-		int count = 0;
-	//	query
-//		try {
-//			SimpleFeatureSource s = ds.getFeatureSource(table);
-//			 //create query
-//			Query q = new Query(table, ECQL.toFilter(filter));
-//			long start = System.nanoTime();
-//			// submit query
-//			//FeatureReader<SimpleFeatureType, SimpleFeature> reader = ds.getFeatureReader(q,Transaction.AUTO_COMMIT);
-//			SimpleFeatureCollection c = s.getFeatures(q);
-//			
-//			long end = System.nanoTime();
-//			SimpleFeatureIterator reader = c.features();
-//			while (reader.hasNext()) {
-//				reader.next();
-//				count++;
-//			}
-//			System.out.println(String.format("Total returned: %d, time: %s ms", count, Long.toString((end-start)/1000000L)));
-//		} catch (Exception e1) {
-//		e1.printStackTrace();
-//		}
-//		
+		int iteration = 11;
+		long readerTime = 0; //in ms
+		long sourceTime = 0; //in ms
+		for(int i = 0; i < iteration; i++) {
+			if(i == 0) {
+
+				//runQuerySource(ds, table, filter);
+				//runQueryReader(ds, table, filter);
+
+				runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
+				runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
+			}
+			else {
+				//sourceTime += runQuerySource(ds, table, filter);
+				//readerTime += runQueryReader(ds, table, filter);
+				
+				//sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
+				//readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
+				
+				sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
+				readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
+			}
+		}
 		
-	
+		System.out.println(String.format("avg runtime reader: %s ms, avg runtime source: %s ms",
+				Long.toString(readerTime/10L), Long.toString(sourceTime/10L)));
 		
-		near(ds, "incidents");
+		//near(ds, "incidents");
 		return;
 
 	}

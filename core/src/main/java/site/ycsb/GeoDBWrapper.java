@@ -340,7 +340,6 @@ public class GeoDBWrapper extends GeoDB {
 	  long s = System.nanoTime();
     generator.buildGeoReadPredicate();
     long e = System.nanoTime();
-    System.out.print("Build Read Time=" + (e-s)/1000 + "ms");
     try (final TraceScope span = tracer.newScope(scopeStringRead)) {
       long ist = measurements.getIntendedtartTimeNs();
       long st = System.nanoTime();
