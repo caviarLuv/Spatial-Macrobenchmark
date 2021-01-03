@@ -491,67 +491,69 @@ public class GeomesaHelper {
 	 * @param args arg[0] = datastore name arg[1] = table name arg[2] = file path
 	 */
 	public static void main(String[] args) {
-		String[] incidents = {"incidents", "/Users/Ashley/Desktop/research/Spatial-benchmark/Graffiti_Abatement_IncidentsLine.json"};
-		String[] buildings = {"buildings", "/Users/Ashley/Desktop/research/Spatial-benchmark/Tempe_Buildings.geojson"};
-		String[] schools = {"schools", "/Users/Ashley/Desktop/research/Spatial-benchmark/K-12_Tempe_Schools.json"};
+		String resources = System.getProperty("user.dir") + "/src/main/resources/";
+		String[] incidents = {"incidents",resources+"Graffiti_Abatement_IncidentsLine.json"};
+		String[] buildings = {"buildings", resources+"Tempe_Buildings.geojson"};
+		String[] schools = {"schools", resources+"K-12_Tempe_Schools.json"};
 		ArrayList<String[]> list = new ArrayList<>();
 		list.add(incidents);
 		list.add(buildings);
 		list.add(schools);
 		DataStore ds = createDatastore("cassandra"); // datastore
-//		
-//		for(String[] param: list) {
-//			SimpleFeatureType sft = createSchema(param[0]); // tablename
-//			try {
-//				ds.createSchema(sft);
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//			insertData(ds, sft, generateFeatures(sft, param[1]));
-//		}
-//		SimpleFeatureType sft = createSchema(args[1]); // tablename
-//		try {
-//			ds.createSchema(sft);
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-//		insertData(ds, sft, generateFeatures(sft, args[2]));
-
 		
-		String filter = "INTERSECTS(incidents, MultiLineString(( -111.91662294557443 33.3964260528521, -111.81731649209647 33.57158772492773), (-111.53584670300357 33.88361677560589, -111.0710866287766 33.47761102293026)))";
-		double initial = -111.8802089256232;
 		
-		String table = "incidents";
-		int iteration = 11;
-		long readerTime = 0; //in ms
-		long sourceTime = 0; //in ms
-		for(int i = 0; i < iteration; i++) {
-			if(i == 0) {
-
-				//runQuerySource(ds, table, filter);
-				//runQueryReader(ds, table, filter);
-
-				runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
-				runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
+		for(String[] param: list) {
+			SimpleFeatureType sft = createSchema(param[0]); // tablename
+			try {
+				ds.createSchema(sft);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			else {
-				//sourceTime += runQuerySource(ds, table, filter);
-				//readerTime += runQueryReader(ds, table, filter);
-				
-				//sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
-				//readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
-				
-				sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
-				readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
-			}
+			insertData(ds, sft, generateFeatures(sft, param[1]));
 		}
+		SimpleFeatureType sft = createSchema(args[1]); // tablename
+		try {
+			ds.createSchema(sft);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		insertData(ds, sft, generateFeatures(sft, args[2]));
+
 		
-		System.out.println(String.format("avg runtime reader: %s ms, avg runtime source: %s ms",
-				Long.toString(readerTime/10L), Long.toString(sourceTime/10L)));
-		
-		//near(ds, "incidents");
+//		String filter = "INTERSECTS(incidents, MultiLineString(( -111.91662294557443 33.3964260528521, -111.81731649209647 33.57158772492773), (-111.53584670300357 33.88361677560589, -111.0710866287766 33.47761102293026)))";
+//		double initial = -111.8802089256232;
+//		
+//		String table = "incidents";
+//		int iteration = 11;
+//		long readerTime = 0; //in ms
+//		long sourceTime = 0; //in ms
+//		for(int i = 0; i < iteration; i++) {
+//			if(i == 0) {
+//
+//				//runQuerySource(ds, table, filter);
+//				//runQueryReader(ds, table, filter);
+//
+//				runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
+//				runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
+//			}
+//			else {
+//				//sourceTime += runQuerySource(ds, table, filter);
+//				//readerTime += runQueryReader(ds, table, filter);
+//				
+//				//sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
+//				//readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial+i*0.0001)));
+//				
+//				sourceTime += runQuerySource(ds, table, String.format(filter, Double.toString(initial)));
+//				readerTime += runQueryReader(ds, table, String.format(filter, Double.toString(initial)));
+//			}
+//		}
+//		
+//		System.out.println(String.format("avg runtime reader: %s ms, avg runtime source: %s ms",
+//				Long.toString(readerTime/10L), Long.toString(sourceTime/10L)));
+//		
+//		//near(ds, "incidents");
 		return;
 
 	}
