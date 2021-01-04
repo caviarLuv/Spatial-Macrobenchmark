@@ -50,7 +50,9 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.geotools.data.simple.SimpleFeatureIterator;
 import org.json.JSONObject;
+import org.opengis.feature.simple.SimpleFeature;
 
 import java.util.*;
 import java.util.Map.Entry;
@@ -88,6 +90,8 @@ public class MongoDbClient extends GeoDB {
   /** The database name to access. */
   private static MongoDatabase database;
 
+  private static final AtomicInteger PRELOAD_COUNT = new AtomicInteger(1);
+  
   /**
    * Count the number of times initialized to teardown on the last
    * {@link #cleanup()}.
@@ -507,44 +511,30 @@ public class MongoDbClient extends GeoDB {
 
   @Override
   public Status geoLoad(String table, ParameterGenerator generator, Double recordCount) {
-/*
-    try {
-      String key = generator.getIncidentsIdRandom();
-      MongoCollection<Document> collection = database.getCollection(table);
-      Random rand = new Random();
-      int objId = rand.nextInt((Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT) -
-          Integer.parseInt(GeoWorkload.DOCS_START_VALUE)) + 1)+Integer.parseInt(GeoWorkload.DOCS_START_VALUE);
-      Document query = new Document("properties.OBJECTID", objId);
-      FindIterable<Document> findIterable = collection.find(query);
-      Document queryResult = findIterable.first();
-      if (queryResult == null) {
-        System.out.println(table+" ++++ "+collection);
-        System.out.println(query);
-        System.out.println("Empty return");
-
-        return Status.OK;
-      }
-      System.out.println("$$$$$I am going to insert");
-      generator.putIncidentsDocument(key, queryResult.toJson());
-      System.out.println("Key : " + key + " Query Result :" + queryResult.toJson());
-      generator.buildGeoInsertDocument();
-      int inserts = (int) Math.round(recordCount/Integer.parseInt(GeoWorkload.TOTAL_DOCS_DEFAULT))-1;
-      System.out.println("\n" + recordCount + "    " + inserts+" documents to be inserted........");
-      for (double i = inserts; i > 0; i--) {
-        HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-        geoInsert(table, cells, generator);
-      }
-      return Status.OK;
-    } catch (Exception e) {
-      System.err.println(e.toString());
-    }
-    return Status.ERROR;
-    */
-   return geoLoad(table, generator);
+	  synchronized (INCLUDE) {
+			if(PRELOAD_COUNT.compareAndSet(1, 0)) {preLoad(table, generator);}
+		}
+	  
+   //geoLoad(table, generator);
+	  return Status.OK;
   }
   
 
-
+  public void preLoad(String table, ParameterGenerator generator) {
+		System.out.println("PRELOADING HERE  " + table);
+		try {
+			MongoCollection<Document> collection = database.getCollection(table);
+			MongoCursor<Document> cursor = collection.find().iterator();
+			while (cursor.hasNext()) {
+				Document data = cursor.next();
+		
+				generator.putDocument(table, data.get("properties", Document.class).getInteger("OBJECTID")+"", data.toJson());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+  
   /** 
    * A geoLoad that loads ENTIRE multiple tables.
    * @param table1
@@ -592,28 +582,15 @@ public class MongoDbClient extends GeoDB {
         String nextDocObjId = generator.getNextId(table);
         
 
-        // Query database for the document
-        Document query = new Document("properties.OBJECTID", Integer.parseInt(nextDocObjId));
-        FindIterable<Document> findIterable = collection.find(query);
-        Document queryResult = findIterable.first();
-        if (queryResult == null) {
-          if(table.equals(ParameterGenerator.GEO_DOCUMENT_PREFIX_BUILDINGS)) {
-            continue;
-          } else {
-            System.out.println(table + " ++++ " + collection.toString());
-            System.out.println(query);
-            System.out.println("Empty return");
-
-            return Status.OK;
-          }
-        }
-        
-        // Load the document to memcached, only ONCE --> if we are on the first iteration of loading
-        if(generator.getSynthesisOffsetCols() == 1 && generator.getSynthesisOffsetRows() == 0) {
-          generator.putDocument(table, nextDocObjId, queryResult.toJson());
-          System.out.println("Key : " + nextDocObjId + " Query Result : " + queryResult.toJson());
-        }
-        
+        // Query memcache for the document
+        String value = generator.getDocument(table, nextDocObjId);
+		if (value == null) {
+			System.out.println(table);
+			System.out.println(String.format("OBJECTID=%s", nextDocObjId));
+			System.out.println("Empty return, Please populate data first.");
+			return Status.OK;
+		}
+    
         // Synthesize new document
         ObjectId generatedId = new ObjectId();
         String newDocBody = generator.buildGeoInsertDocument(table, 

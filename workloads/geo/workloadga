@@ -18,8 +18,8 @@ workload=site.ycsb.workloads.geo.GeoWorkload
 
 geo_insert=0
 geo_update=0
-geo_near=0
-geo_box=1
+geo_near=1
+geo_box=0
 geo_intersect=0
 geo_scan=0
 

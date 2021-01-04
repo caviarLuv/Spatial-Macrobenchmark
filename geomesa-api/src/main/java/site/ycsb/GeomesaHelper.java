@@ -512,15 +512,7 @@ public class GeomesaHelper {
 			}
 			insertData(ds, sft, generateFeatures(sft, param[1]));
 		}
-		SimpleFeatureType sft = createSchema(args[1]); // tablename
-		try {
-			ds.createSchema(sft);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		insertData(ds, sft, generateFeatures(sft, args[2]));
-
+	
 		
 //		String filter = "INTERSECTS(incidents, MultiLineString(( -111.91662294557443 33.3964260528521, -111.81731649209647 33.57158772492773), (-111.53584670300357 33.88361677560589, -111.0710866287766 33.47761102293026)))";
 //		double initial = -111.8802089256232;
