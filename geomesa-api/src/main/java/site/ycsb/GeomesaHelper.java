@@ -234,7 +234,7 @@ public class GeomesaHelper {
 		attributes.append("*" + "geometry" + ":Point:srid=4326");
 		sft = SimpleFeatureTypes.createType("incidents", attributes.toString());
 		// Only enabling z2 indexing
-		sft.getUserData().put("geomesa.indices.enabled", "z2");
+		//sft.getUserData().put("geomesa.indices.enabled", "z2");
 		return sft;
 	}
 
@@ -294,7 +294,7 @@ public class GeomesaHelper {
 
 		Map<String, String> parameters = new HashMap<String, String>();
 		parameters.put("cassandra.contact.point", "127.0.0.1:9042");
-		parameters.put("cassandra.keyspace", "grafittidb");
+		parameters.put("cassandra.keyspace", "testdb");
 		parameters.put("cassandra.catalog", "geoycsb");
 		/*
 		 * for(Entry<String, String> entry: parameters.entrySet()) {

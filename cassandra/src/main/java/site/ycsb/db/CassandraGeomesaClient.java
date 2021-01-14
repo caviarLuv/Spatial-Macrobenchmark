@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Properties;
@@ -34,14 +35,18 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.geojson.feature.FeatureJSON;
+import org.geotools.geometry.jts.JTSFactoryFinder;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
+import org.opengis.geometry.coordinate.GeometryFactory;
 import org.opengis.feature.simple.SimpleFeature;
-import org.locationtech.geomesa.index.utils.ExplainPrintln;
 import org.locationtech.geomesa.process.query.KNearestNeighborSearchProcess;
 import org.locationtech.geomesa.process.query.ProximitySearchProcess;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.io.WKTReader;
 
 public class CassandraGeomesaClient extends GeoDB {
 
@@ -509,75 +514,118 @@ public class CassandraGeomesaClient extends GeoDB {
 		}
 	}
 
+	
 	@Override
 	public Status geoNear(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		//KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
-		ProximitySearchProcess tp = new ProximitySearchProcess();
-		//// String nearFieldName =
-		//// gen.getGeoPredicate().getNestedPredicateA().getName();
+		String nearFieldName = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String dockey = gen.getGeoPredicate().getDocid();
-		//JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
-		
-		//// System.out.println(nearFieldName + ", " + nearFieldValue.toString());
-		//SimpleFeatureCollection input = new SpatialIndexFeatureCollection();
-		
-		// convert json to simple feature
-		SimpleFeatureType sft;
+		String nearFieldValue = convertGeomData(gen.getGeoPredicate().getNestedPredicateA().getValueA());
+		String filter = String.format("DWITHIN(%s, %s, 1000, meters)", nearFieldName, nearFieldValue);
+		//String filter = "DWITHIN(geometry, POINT(-111.95486393503784 33.40702744850014), 1000, meters)";
+		TreeMap<Double, SimpleFeature> map = new TreeMap<>();
 		try {
-			sft = datastore.getSchema(table);
-		} catch (IOException e1) {
-			throw new RuntimeException(String.format("Cannot fetch schema-%s from database", table));
-		}
-		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
-		builder.set("OBJECTID", dockey);
-		//builder.set("geometry", convertGeomData(nearFieldValue));
-		builder.set("geometry", "Point(-111.8802089256232 33.387247158935985)");
-		SimpleFeature feature = builder.buildFeature(dockey);
-		//((SpatialIndexFeatureCollection) input).add(feature);
-		SimpleFeatureCollection input = DataUtilities.collection(feature);
-		// Obtain dataset
-		SimpleFeatureCollection data = null;
-		try (FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
-				Transaction.AUTO_COMMIT)) {
-			data = DataUtilities.collection(reader);
-		} catch (IOException e) {
+			//query database
+			SimpleFeatureSource s = datastore.getFeatureSource(table);
+			SimpleFeatureCollection c = s.getFeatures(ECQL.toFilter(filter));
+
+			//sort
+			SimpleFeatureIterator reader = c.features();
+			if (reader.hasNext()) {
+		        WKTReader wkt = new WKTReader();
+		        int count = 0;
+				while(reader.hasNext()) {
+					SimpleFeature f = reader.next();
+					count ++;
+					//compute distance to the nearField
+					Point point1 = (Point) wkt.read(f.getDefaultGeometry().toString());
+					Point point2 = (Point) wkt.read(nearFieldValue);
+					map.put(point1.distance(point2), f);
+				}
+				Map.Entry<Double, SimpleFeature> entry = map.firstEntry();
+				System.out.println("##"+DataUtilities.encodeFeature(entry.getValue())+"\ncount="+count+nearFieldValue);
+				//geoFillMap(result, entry.getValue());
+				reader.close();
+				return Status.OK;
+				
+			} else {
+				reader.close();
+				return Status.NOT_FOUND;
+			}
+		}catch(Exception e) {
 			e.printStackTrace();
 			return Status.ERROR;
-		};
-		
+		}
+	}
+	
+//	@Override
+//	public Status geoNear(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+//		//KNearestNeighborSearchProcess process = new KNearestNeighborSearchProcess();
+//		ProximitySearchProcess tp = new ProximitySearchProcess();
+//		//// String nearFieldName =
+//		//// gen.getGeoPredicate().getNestedPredicateA().getName();
+//		String dockey = gen.getGeoPredicate().getDocid();
+//		//JSONObject nearFieldValue = gen.getGeoPredicate().getNestedPredicateA().getValueA();
+//		
+//		//// System.out.println(nearFieldName + ", " + nearFieldValue.toString());
+//		//SimpleFeatureCollection input = new SpatialIndexFeatureCollection();
+//		
+//		// convert json to simple feature
+//		SimpleFeatureType sft;
 //		try {
-//			SimpleFeatureSource s = datastore.getFeatureSource(table);
-//			data = s.getFeatures();
+//			sft = datastore.getSchema(table);
+//		} catch (IOException e1) {
+//			throw new RuntimeException(String.format("Cannot fetch schema-%s from database", table));
+//		}
+//		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
+//		builder.set("OBJECTID", dockey);
+//		//builder.set("geometry", convertGeomData(nearFieldValue));
+//		builder.set("geometry", "Point(-111.8802089256232 33.387247158935985)");
+//		SimpleFeature feature = builder.buildFeature(dockey);
+//		//((SpatialIndexFeatureCollection) input).add(feature);
+//		SimpleFeatureCollection input = DataUtilities.collection(feature);
+//		// Obtain dataset
+//		SimpleFeatureCollection data = null;
+//		try (FeatureReader<SimpleFeatureType, SimpleFeature> reader = datastore.getFeatureReader(new Query(table),
+//				Transaction.AUTO_COMMIT)) {
+//			data = DataUtilities.collection(reader);
 //		} catch (IOException e) {
 //			e.printStackTrace();
 //			return Status.ERROR;
 //		};
-
-		long start = System.nanoTime();
-		//SimpleFeatureCollection results = process.execute(input, data, 140, 0.0, 1000.0);
-		SimpleFeatureCollection results = tp.execute(input, data, 1000.0);
-		System.out.println("**" + (System.nanoTime()-start)/1000000L);
-		SimpleFeatureIterator iterator = results.features();
-		//int count = 0;
-		try {
-			if (iterator.hasNext()) {
-				/*
-				while(iterator.hasNext()) {
-				SimpleFeature f = iterator.next();
-				System.out.println(DataUtilities.encodeFeature(f));
-				count++;
-				}
-				System.out.println(count);
-				//geoFillMap(result, f);	 
-			 */
-				return Status.OK;
-			} else {
-				return Status.NOT_FOUND;
-			}
-		} finally {
-			iterator.close();
-		}
-	}
+//		
+////		try {
+////			SimpleFeatureSource s = datastore.getFeatureSource(table);
+////			data = s.getFeatures();
+////		} catch (IOException e) {
+////			e.printStackTrace();
+////			return Status.ERROR;
+////		};
+//
+//		long start = System.nanoTime();
+//		//SimpleFeatureCollection results = process.execute(input, data, 140, 0.0, 1000.0);
+//		SimpleFeatureCollection results = tp.execute(input, data, 1000.0);
+//		System.out.println("**" + (System.nanoTime()-start)/1000000L);
+//		SimpleFeatureIterator iterator = results.features();
+//		//int count = 0;
+//		try {
+//			if (iterator.hasNext()) {
+//				/*
+//				while(iterator.hasNext()) {
+//				SimpleFeature f = iterator.next();
+//				System.out.println(DataUtilities.encodeFeature(f));
+//				count++;
+//				}
+//				System.out.println(count);
+//				//geoFillMap(result, f);	 
+//			 */
+//				return Status.OK;
+//			} else {
+//				return Status.NOT_FOUND;
+//			}
+//		} finally {
+//			iterator.close();
+//		}
+//	}
 
 	/**
 	 * Build Geomesa box CQL and execute query and retrive result bbox(x1, x2, y1,
