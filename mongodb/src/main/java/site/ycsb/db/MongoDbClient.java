@@ -515,7 +515,10 @@ public class MongoDbClient extends GeoDB {
 			if(PRELOAD_COUNT.compareAndSet(1, 0)) {preLoad(table, generator);}
 		}
 	  
-   //geoLoad(table, generator);
+	  if (geoLoad(table, generator) == Status.ERROR)
+			return Status.ERROR;
+		generator.incrementSynthesisOffset();
+		
 	  return Status.OK;
   }
   

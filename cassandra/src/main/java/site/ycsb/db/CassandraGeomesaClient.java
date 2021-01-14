@@ -149,10 +149,10 @@ public class CassandraGeomesaClient extends GeoDB {
 			if(PRELOAD_COUNT.compareAndSet(1, 0)) {preLoad(table, generator);}
 		}
 
-		/*
+		
 		if (geoLoad(table, generator) == Status.ERROR)
 			return Status.ERROR;
-		generator.incrementSynthesisOffset();*/
+		generator.incrementSynthesisOffset();
 		
 		return Status.OK;
 	}
@@ -542,8 +542,8 @@ public class CassandraGeomesaClient extends GeoDB {
 					map.put(point1.distance(point2), f);
 				}
 				Map.Entry<Double, SimpleFeature> entry = map.firstEntry();
-				System.out.println("##"+DataUtilities.encodeFeature(entry.getValue())+"\ncount="+count+nearFieldValue);
-				//geoFillMap(result, entry.getValue());
+				//System.out.println("##"+DataUtilities.encodeFeature(entry.getValue())+"\ncount="+count+nearFieldValue);
+				geoFillMap(result, entry.getValue());
 				reader.close();
 				return Status.OK;
 				
