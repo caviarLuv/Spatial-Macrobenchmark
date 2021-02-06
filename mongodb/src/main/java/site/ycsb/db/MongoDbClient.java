@@ -515,7 +515,10 @@ public class MongoDbClient extends GeoDB {
 			if(PRELOAD_COUNT.compareAndSet(1, 0)) {preLoad(table, generator);}
 		}
 	  
-   //geoLoad(table, generator);
+	  if (geoLoad(table, generator) == Status.ERROR){
+			return Status.ERROR;
+    }
+		generator.incrementSynthesisOffset();
 	  return Status.OK;
   }
   
@@ -545,6 +548,14 @@ public class MongoDbClient extends GeoDB {
    */
   @Override
   public Status geoLoad(String table1, String table2, String table3, ParameterGenerator generator, Double recordCount) {
+    synchronized (INCLUDE) {
+			if(PRELOAD_COUNT.compareAndSet(1, 0)) {
+				//Pre-populating data into memcached
+				preLoad(table1, generator);
+				preLoad(table2, generator);
+				preLoad(table3, generator);
+				}
+		}
     try {
     	System.out.println(table1+" "+ table2 + " " + table3+"\n\n\n\n\n\n\n\n\n\n\n");
       if(geoLoad(table1, generator) == Status.ERROR) {
@@ -576,7 +587,7 @@ public class MongoDbClient extends GeoDB {
       System.out.println("macro");
       MongoCollection<Document> collection = database.getCollection(table);
       
-      // Load EVERY document of the collection
+      
       for(int i = 0; i < generator.getTotalDocsCount(table); i++) {
         // Get the next document
         String nextDocObjId = generator.getNextId(table);
