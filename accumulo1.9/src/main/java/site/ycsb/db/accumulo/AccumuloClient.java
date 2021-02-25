@@ -437,8 +437,8 @@ public class AccumuloClient extends GeoDB {
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
-		String sqlQuery = "select * from %s where st_Within(st_geomFromWKT('%s'), %s)";
-		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		String sqlQuery = "select * from %s where st_Within(%s, st_geomFromWKT('%s'))";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, field, wktGeom));
 		System.out.println(String.format("Query %s: Within ::: %s", table,  wktGeom));
 		try {
 			
