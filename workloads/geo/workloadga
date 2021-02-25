@@ -1,6 +1,6 @@
 
 recordcount=1
-operationcount=1000
+operationcount=100
 # not for geo
 requestdistribution=uniform
 readallfields=true
@@ -15,12 +15,15 @@ workload=site.ycsb.workloads.geo.GeoWorkload
 
 # Workload settings for geo
 
-geo_insert=0
-geo_update=0
-geo_near=0
-geo_box=0
-geo_intersect=1
-geo_scan=0
+geo_disjoint=0
+geo_intersect=0
+geo_touches=1
+geo_crosses=0
+geo_within=0
+geo_contains=0
+geo_overlaps=0
+geo_equals=0
+geo_covers=0
 
 # zipfian, uniform, latest
 geo_request_distribution=uniform
@@ -33,3 +36,5 @@ geo_querylimit_max = 10
 
 geo_offset_min = 10
 geo_offset_max = 10
+
+table2=routes

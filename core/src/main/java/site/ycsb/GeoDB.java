@@ -133,8 +133,7 @@ public abstract class GeoDB extends DB {
   }
   
   // a geoLoad for loading multiple tables
-  public abstract Status geoLoad(String table1, String table2, String table3,
-      ParameterGenerator generator, Double recordCount);
+  public abstract Status geoLoad(String table1, String table2, ParameterGenerator generator, Double recordCount);
 
   public Status geoInsert(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
     System.err.println("geoInsert not implemented");
@@ -161,28 +160,49 @@ public abstract class GeoDB extends DB {
     return null;
   }
 
-  public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
-    System.err.println("geoIntersect not implemented");
-    return null;
-  }
-
   public Status geoScan(String table, Vector<HashMap<String, ByteIterator>> result, ParameterGenerator gen)  {
     System.err.println("geoScan not implemented");
     return null;
   }
   
-
-  /* Use case operations for macro-benchmarks */
+  /* DE-9IM methods*/
+  public Status geoDisjoint(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
   
-  public abstract Status geoUseCase1(String table, HashMap<String, 
-      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
+  public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+    System.err.println("geoIntersect not implemented");
+    return null;
+  }
+  public Status geoCovers(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("geoCover not implemented");
+	    return null;
+	  }
+  public Status geoTouches(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
+  public Status geoCrosses(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
+  public Status geoWithin(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
+  public Status geoContains(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
+  public Status geoOverlaps(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
+  public Status geoEquals(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen)  {
+	    System.err.println("not implemented");
+	    return null;
+	  }
   
-  public abstract Status geoUseCase2(String table, HashMap<String, 
-      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
-  
-  public abstract Status geoUseCase3(String table1, String table2, HashMap<String,
-      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen);
-  
-  public abstract Status geoUseCase4(String table, String operation, Set<Integer> deleted, ParameterGenerator gen);
-
+ 
 }

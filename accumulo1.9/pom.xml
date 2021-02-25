@@ -1,93 +1,221 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
-Copyright (c) 2011 YCSB++ project, 2014 - 2016 YCSB contributors.
-All rights reserved.
+<!-- Copyright (c) 2011 YCSB++ project, 2014 - 2016 YCSB contributors. All 
+	rights reserved. Licensed under the Apache License, Version 2.0 (the "License"); 
+	you may not use this file except in compliance with the License. You may 
+	obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 
+	Unless required by applicable law or agreed to in writing, software distributed 
+	under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES 
+	OR CONDITIONS OF ANY KIND, either express or implied. See the License for 
+	the specific language governing permissions and limitations under the License. 
+	See accompanying LICENSE file. -->
 
-Licensed under the Apache License, Version 2.0 (the "License"); you
-may not use this file except in compliance with the License. You
-may obtain a copy of the License at
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>site.ycsb</groupId>
+		<artifactId>binding-parent</artifactId>
+		<version>0.18.0-SNAPSHOT</version>
+		<relativePath>../binding-parent</relativePath>
+	</parent>
+	<artifactId>accumulo1.9-binding</artifactId>
+	<name>Accumulo 1.9 DB Binding</name>
+	<properties>
+		<!-- This should match up to the one from your Accumulo version -->
+		<hadoop.version>3.2.2</hadoop.version>
 
-http://www.apache.org/licenses/LICENSE-2.0
+		<skipJDK9Tests>true</skipJDK9Tests>
+		<skipJDK10Tests>true</skipJDK10Tests>
+		<skipJDK11Tests>true</skipJDK11Tests>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.accumulo</groupId>
+			<artifactId>accumulo-core</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.accumulo/accumulo-minicluster -->
+<dependency>
+    <groupId>org.apache.accumulo</groupId>
+    <artifactId>accumulo-minicluster</artifactId>
+    <version>2.0.1</version>
+</dependency>
+		<!-- Needed for hadoop.io.Text :( -->
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-common</artifactId>
+			<version>${hadoop.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>site.ycsb</groupId>
+			<artifactId>core</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.12</version>
+			<scope>test</scope>
+		</dependency>
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-implied. See the License for the specific language governing
-permissions and limitations under the License. See accompanying
-LICENSE file.
--->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-text -->
+<dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-text</artifactId>
+    <version>1.9</version>
+</dependency>
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>site.ycsb</groupId>
-    <artifactId>binding-parent</artifactId>
-    <version>0.18.0-SNAPSHOT</version>
-    <relativePath>../binding-parent</relativePath>
-  </parent>
-  <artifactId>accumulo1.9-binding</artifactId>
-  <name>Accumulo 1.9 DB Binding</name>
-  <properties>
-    <!-- This should match up to the one from your Accumulo version -->
-    <hadoop.version>2.6.4</hadoop.version>
+		<!-- Geomesa dependencies -->
 
-    <skipJDK9Tests>true</skipJDK9Tests>
-    <skipJDK10Tests>true</skipJDK10Tests>
-    <skipJDK11Tests>true</skipJDK11Tests>
-  </properties>
-  <dependencies>
+		<dependency>
+			<groupId>org.apache.accumulo</groupId>
+			<artifactId>accumulo-start</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.zookeeper</groupId>
+			<artifactId>zookeeper</artifactId>
+			<version>3.6.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.locationtech.geomesa</groupId>
+			<artifactId>geomesa-accumulo-datastore_2.11</artifactId>
+			<version>3.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.locationtech.geomesa</groupId>
+			<artifactId>geomesa-utils_2.11</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-client</artifactId>
+			<version>${hadoop.version}</version>
+		</dependency>
+<!-- https://mvnrepository.com/artifact/com.esotericsoftware/kryo -->
+<dependency>
+    <groupId>com.esotericsoftware</groupId>
+    <artifactId>kryo</artifactId>
+    <version>4.0.0</version>
+</dependency>
+
+		<!--  spark dependencies -->
+		<!-- https://mvnrepository.com/artifact/org.locationtech.geomesa/geomesa-spark-jts -->
+<dependency>
+    <groupId>org.locationtech.geomesa</groupId>
+    <artifactId>geomesa-spark-jts_2.11</artifactId>
+    <version>3.0.0</version>
+</dependency>
+		<!-- https://mvnrepository.com/artifact/org.locationtech.geomesa/geomesa-spark-core -->
+<dependency>
+    <groupId>org.locationtech.geomesa</groupId>
+    <artifactId>geomesa-spark-core_2.11</artifactId>
+    <version>3.0.0</version>
+</dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-scala_2.11</artifactId>
+            <version>2.11.4</version>
+        </dependency> 
+        <!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.11.4</version>
+</dependency>
+        
+		<!-- https://mvnrepository.com/artifact/org.locationtech.geomesa/geomesa-spark-sql -->
+<dependency>
+    <groupId>org.locationtech.geomesa</groupId>
+    <artifactId>geomesa-spark-sql_2.11</artifactId>
+    <version>3.0.0</version>
+</dependency>
     <dependency>
-      <groupId>org.apache.accumulo</groupId>
-      <artifactId>accumulo-core</artifactId>
-      <version>${accumulo.1.9.version}</version>
+        <groupId>org.locationtech.geomesa</groupId>
+        <artifactId>geomesa-accumulo-spark_2.11</artifactId>
+        <version>3.0.0</version>
     </dependency>
-    <!-- Needed for hadoop.io.Text :( -->
+
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>${hadoop.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>jdk.tools</groupId>
-          <artifactId>jdk.tools</artifactId>
-        </exclusion>
-      </exclusions>
+        <groupId>org.locationtech.geomesa</groupId>
+        <artifactId>geomesa-spark-converter_2.11</artifactId>
+        <version>3.0.0</version>
     </dependency>
-    <dependency>
-      <groupId>site.ycsb</groupId>
-      <artifactId>core</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.accumulo</groupId>
-      <artifactId>accumulo-minicluster</artifactId>
-      <version>${accumulo.1.9.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- needed directly only in test, but transitive
-         at runtime for accumulo, hadoop, and thrift. -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.13</version>
-    </dependency>
-  </dependencies>
-  <build>
-    <testResources>
-      <testResource>
-        <directory>../workloads</directory>
-        <targetPath>workloads</targetPath>
-      </testResource>
-      <testResource>
-        <directory>src/test/resources</directory>
-      </testResource>
-    </testResources>
-  </build>
+		<dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_2.11</artifactId>
+            <version>2.4.7</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-catalyst_2.11</artifactId>
+            <version>2.4.7</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.11</artifactId>
+            <version>2.4.7</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-yarn_2.11</artifactId>
+            <version>2.4.7</version>
+            <scope>provided</scope>
+        </dependency>
+        
+		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geojson</artifactId>
+			<version>23.0</version>
+		</dependency>
+	</dependencies>
+	
+	<repositories>
+		<!-- geotools -->
+		<repository>
+			<id>osgeo</id>
+			<url>https://repo.osgeo.org/repository/release</url>
+		</repository>
+	</repositories>
+	
+	<build>
+		<plugins>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>3.2.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <scalaVersion>2.11</scalaVersion>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins> 
+	</build>
+	     
 </project>

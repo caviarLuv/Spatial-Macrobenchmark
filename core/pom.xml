@@ -69,6 +69,12 @@
 			<artifactId>json</artifactId>
 			<version>20200518</version>
 		</dependency>
+		 
+		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geojson</artifactId>
+			<version>23.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>

@@ -18,361 +18,574 @@
 
 package site.ycsb.db.accumulo;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.BatchWriter;
-import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.ClientConfiguration;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.IteratorSetting;
-import org.apache.accumulo.core.client.MutationsRejectedException;
-import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.TableNotFoundException;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.apache.accumulo.core.client.security.tokens.AuthenticationToken;
-import org.apache.accumulo.core.client.security.tokens.PasswordToken;
-import org.apache.accumulo.core.data.Key;
-import org.apache.accumulo.core.data.Mutation;
-import org.apache.accumulo.core.data.Range;
-import org.apache.accumulo.core.data.Value;
-import org.apache.accumulo.core.iterators.user.WholeRowIterator;
-import org.apache.accumulo.core.security.Authorizations;
-import org.apache.accumulo.core.util.CleanUp;
-import org.apache.hadoop.io.Text;
 
-import site.ycsb.ByteArrayByteIterator;
+import org.apache.spark.sql.SparkSession;
+import org.geotools.data.DataStore;
+import org.geotools.data.DataStoreFinder;
+import org.geotools.data.DataUtilities;
+import org.geotools.data.FeatureWriter;
+import org.geotools.data.Transaction;
+import org.geotools.data.simple.SimpleFeatureIterator;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.geojson.feature.FeatureJSON;
+import org.geotools.geojson.geom.GeometryJSON;
+import org.json.JSONObject;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+
 import site.ycsb.ByteIterator;
-import site.ycsb.DB;
 import site.ycsb.DBException;
+import site.ycsb.GeoDB;
 import site.ycsb.Status;
+import site.ycsb.generator.geo.ParameterGenerator;
 
 /**
  * <a href="https://accumulo.apache.org/">Accumulo</a> binding for YCSB.
  */
-public class AccumuloClient extends DB {
+public class AccumuloClient extends GeoDB {
 
-  private ZooKeeperInstance inst;
-  private Connector connector;
-  private Text colFam = new Text("");
-  private byte[] colFamBytes = new byte[0];
-  private final ConcurrentHashMap<String, BatchWriter> writers = new ConcurrentHashMap<>();
+	private static DataStore datastore;
+	private static Map<String, String> parameters;
+	//private static SparkSession sparkSession;
+	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
 
-  static {
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        CleanUp.shutdownNow();
-      }
-    });
-  }
+	private static final AtomicInteger PRELOAD_COUNT = new AtomicInteger(1);
+	/** Used to include a field in a response. */
+	private static final Integer INCLUDE = Integer.valueOf(1);
 
-  @Override
-  public void init() throws DBException {
-    colFam = new Text(getProperties().getProperty("accumulo.columnFamily"));
-    colFamBytes = colFam.toString().getBytes(UTF_8);
+	@Override
+	public void init() throws DBException {
+		// Keep track of number of calls to init (for later cleanup)
+		INIT_COUNT.incrementAndGet();
+		// Synchronized so that we only have a single
+		// cluster/session instance for all the threads.
+		synchronized (INCLUDE) {
 
-    inst = new ZooKeeperInstance(new ClientConfiguration()
-        .withInstance(getProperties().getProperty("accumulo.instanceName"))
-        .withZkHosts(getProperties().getProperty("accumulo.zooKeepers")));
-    try {
-      String principal = getProperties().getProperty("accumulo.username");
-      AuthenticationToken token =
-          new PasswordToken(getProperties().getProperty("accumulo.password"));
-      connector = inst.getConnector(principal, token);
-    } catch (AccumuloException | AccumuloSecurityException e) {
-      throw new DBException(e);
-    }
+			// Check if the cluster has already been initialized
+			if (datastore != null) {
+				return;
+			}
 
-    if (!(getProperties().getProperty("accumulo.pcFlag", "none").equals("none"))) {
-      System.err.println("Sorry, the ZK based producer/consumer implementation has been removed. " +
-          "Please see YCSB issue #416 for work on adding a general solution to coordinated work.");
-    }
-  }
+			Properties props = getProperties();
+			String zookeepers = props.getProperty("zookeepers", "127.0.0.1:2181");
+			String user = props.getProperty("user", "myUser");
+			String pw = props.getProperty("password", "geomesa");
+			String catalog = props.getProperty("catalog", "myNamespace.geomesa");
+			String instance = props.getProperty("instance", "testdb");
 
-  @Override
-  public void cleanup() throws DBException {
-    try {
-      Iterator<BatchWriter> iterator = writers.values().iterator();
-      while (iterator.hasNext()) {
-        BatchWriter writer = iterator.next();
-        writer.close();
-        iterator.remove();
-      }
-    } catch (MutationsRejectedException e) {
-      throw new DBException(e);
-    }
-  }
+			parameters = new HashMap<>();
+			parameters.put("accumulo.instance.id", instance);
+			parameters.put("accumulo.zookeepers", zookeepers);
+			parameters.put("accumulo.user", user);
+			parameters.put("accumulo.password", pw);
+			parameters.put("accumulo.catalog", catalog);
+			// parameters.put("geomesa.security.auths", "USER,ADMIN");
+			for (Entry<String, String> entry : parameters.entrySet()) {
+				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
+			}
+	
+			// create datastore
+			try {
+				datastore = DataStoreFinder.getDataStore(parameters);
 
-  /**
-   * Called when the user specifies a table that isn't the same as the existing
-   * table. Connect to it and if necessary, close our current connection.
-   * 
-   * @param table
-   *          The table to open.
-   */
-  public BatchWriter getWriter(String table) throws TableNotFoundException {
-    // tl;dr We're paying a cost for the ConcurrentHashMap here to deal with the DB api.
-    // We know that YCSB is really only ever going to send us data for one table, so using
-    // a concurrent data structure is overkill (especially in such a hot code path).
-    // However, the impact seems to be relatively negligible in trivial local tests and it's
-    // "more correct" WRT to the API.
-    BatchWriter writer = writers.get(table);
-    if (null == writer) {
-      BatchWriter newWriter = createBatchWriter(table);
-      BatchWriter oldWriter = writers.putIfAbsent(table, newWriter);
-      // Someone beat us to creating a BatchWriter for this table, use their BatchWriters
-      if (null != oldWriter) {
-        try {
-          // Make sure to clean up our new batchwriter!
-          newWriter.close();
-        } catch (MutationsRejectedException e) {
-          throw new RuntimeException(e);
-        }
-        writer = oldWriter;
-      } else {
-        writer = newWriter;
-      }
-    }
-    return writer;
-  }
+				if (datastore == null) {
+					throw new RuntimeException("Cannot create datastore given the parameter");
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 
-  /**
-   * Creates a BatchWriter with the expected configuration.
-   *
-   * @param table The table to write to
-   */
-  private BatchWriter createBatchWriter(String table) throws TableNotFoundException {
-    BatchWriterConfig bwc = new BatchWriterConfig();
-    bwc.setMaxLatency(
-        Long.parseLong(getProperties()
-            .getProperty("accumulo.batchWriterMaxLatency", "30000")),
-        TimeUnit.MILLISECONDS);
-    bwc.setMaxMemory(Long.parseLong(
-        getProperties().getProperty("accumulo.batchWriterSize", "100000")));
-    final String numThreadsValue = getProperties().getProperty("accumulo.batchWriterThreads");
-    // Try to saturate the client machine.
-    int numThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-    if (null != numThreadsValue) {
-      numThreads = Integer.parseInt(numThreadsValue);
-    }
-    System.err.println("Using " + numThreads + " threads to write data");
-    bwc.setMaxWriteThreads(numThreads);
-    return connector.createBatchWriter(table, bwc);
-  }
+		}
+	}
 
-  /**
-   * Gets a scanner from Accumulo over one row.
-   *
-   * @param row the row to scan
-   * @param fields the set of columns to scan
-   * @return an Accumulo {@link Scanner} bound to the given row and columns
-   */
-  private Scanner getRow(String table, Text row, Set<String> fields) throws TableNotFoundException {
-    Scanner scanner = connector.createScanner(table, Authorizations.EMPTY);
-    scanner.setRange(new Range(row));
-    if (fields != null) {
-      for (String field : fields) {
-        scanner.fetchColumn(colFam, new Text(field));
-      }
-    }
-    return scanner;
-  }
+	@Override
+	public void cleanup() throws DBException {
+		if (INIT_COUNT.decrementAndGet() == 0) {
+			try {
+				// datastore.dispose();
+			} catch (Exception e) {
+				e.printStackTrace();
+				return;
+			} finally {
+				datastore = null;
+			}
+		}
+	}
 
-  @Override
-  public Status read(String table, String key, Set<String> fields,
-                     Map<String, ByteIterator> result) {
+	public void preLoad(String table, ParameterGenerator generator) {
+		System.out.println("PRELOADING HERE  " + table);
+		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); //set precision
+		try {
+			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
+				while (reader.hasNext()) {
+					SimpleFeature data = reader.next();
+					generator.putOriginalDocument(table, io.toString(data));
+					System.out.println(io.toString(data));
+				}
+//
+//			// for testing a smaller dataset
+//			for (int i = 0; i < 200; i++) {
+//				SimpleFeature data = reader.next();
+//				System.out.println("###original: " + DataUtilities.encodeFeature(data));
+//				//System.out.println("before:" + io.toString(data));
+//				generator.putOriginalDocument(table, io.toString(data));
+//			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
-    Scanner scanner = null;
-    try {
-      scanner = getRow(table, new Text(key), null);
-      // Pick out the results we care about.
-      final Text cq = new Text();
-      for (Entry<Key, Value> entry : scanner) {
-        entry.getKey().getColumnQualifier(cq);
-        Value v = entry.getValue();
-        byte[] buf = v.get();
-        result.put(cq.toString(),
-            new ByteArrayByteIterator(buf));
-      }
-    } catch (Exception e) {
-      System.err.println("Error trying to reading Accumulo table " + table + " " + key);
-      e.printStackTrace();
-      return Status.ERROR;
-    } finally {
-      if (null != scanner) {
-        scanner.close();
-      }
-    }
-    return Status.OK;
+	public Status geoLoad(String table, ParameterGenerator generator, Double recordCount) {
+		return Status.OK;
+	}
 
-  }
+	@Override
+	public Status geoLoad(String table1, String table2, ParameterGenerator generator, Double recordCount) {
+		synchronized (INCLUDE) {
+			if (PRELOAD_COUNT.compareAndSet(1, 0)) {
+				// Pre-populating data into memcached
+				preLoad(table1, generator);
+				preLoad(table2, generator);
+			}
+		}
+		try {
 
-  @Override
-  public Status scan(String table, String startkey, int recordcount,
-      Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
-    // Just make the end 'infinity' and only read as much as we need.
-    Scanner scanner = null;
-    try {
-      scanner = connector.createScanner(table, Authorizations.EMPTY);
-      scanner.setRange(new Range(new Text(startkey), null));
+			System.out.println(table1 + " " + table2 + "\n\n\n\n\n\n\n\n\n\n\n");
+			if (geoLoad(table1, generator) == Status.ERROR) {
+				return Status.ERROR;
+			}
+			if (geoLoad(table2, generator) == Status.ERROR) {
+				return Status.ERROR;
+			}
+			generator.incrementSynthesisOffset();
 
-      // Have Accumulo send us complete rows, serialized in a single Key-Value pair
-      IteratorSetting cfg = new IteratorSetting(100, WholeRowIterator.class);
-      scanner.addScanIterator(cfg);
+			return Status.OK;
+		} catch (Exception e) {
+			System.err.println(e.toString());
+		}
+		return Status.ERROR;
+	}
 
-      // If no fields are provided, we assume one column/row.
-      if (fields != null) {
-        // And add each of them as fields we want.
-        for (String field : fields) {
-          scanner.fetchColumn(colFam, new Text(field));
-        }
-      }
+	private Status geoLoad(String table, ParameterGenerator generator) {
+		try {
+			System.out.println("geoloading");
+			// Load EVERY document of the collection
 
-      int count = 0;
-      for (Entry<Key, Value> entry : scanner) {
-        // Deserialize the row
-        SortedMap<Key, Value> row = WholeRowIterator.decodeRow(entry.getKey(), entry.getValue());
-        HashMap<String, ByteIterator> rowData;
-        if (null != fields) {
-          rowData = new HashMap<>(fields.size());
-        } else {
-          rowData = new HashMap<>();
-        }
-        result.add(rowData);
-        // Parse the data in the row, avoid unnecessary Text object creation
-        final Text cq = new Text();
-        for (Entry<Key, Value> rowEntry : row.entrySet()) {
-          rowEntry.getKey().getColumnQualifier(cq);
-          rowData.put(cq.toString(), new ByteArrayByteIterator(rowEntry.getValue().get()));
-        }
-        if (count++ == recordcount) { // Done reading the last row.
-          break;
-        }
-      }
-    } catch (TableNotFoundException e) {
-      System.err.println("Error trying to connect to Accumulo table.");
-      e.printStackTrace();
-      return Status.ERROR;
-    } catch (IOException e) {
-      System.err.println("Error deserializing data from Accumulo.");
-      e.printStackTrace();
-      return Status.ERROR;
-    } finally {
-      if (null != scanner) {
-        scanner.close();
-      }
-    }
+			// i < generator.getTotalDocsCount(table)
+			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
+				// Get the random document from memcached
+				String value = generator.getOriginalDocument(table, i + "");
+				if (value == null) {
+					System.out.println(table);
+					System.out.println(String.format("OBJECTID=%s", i));
+					System.out.println("Empty return, Please populate data first.");
+					return Status.OK;
+				}
 
-    return Status.OK;
-  }
+				/* Synthesize */
+				//String newDocBody = generator.buildGeoLoadDocument(table, i); // {..., geometry: "Polygon(...)"} WKT
+																				// format
+				//System.out.println(newDocBody);
+				// Add to database
+				// geoInsert(table, newDocBody, generator);
 
-  @Override
-  public Status update(String table, String key,
-                       Map<String, ByteIterator> values) {
-    BatchWriter bw = null;
-    try {
-      bw = getWriter(table);
-    } catch (TableNotFoundException e) {
-      System.err.println("Error opening batch writer to Accumulo table " + table);
-      e.printStackTrace();
-      return Status.ERROR;
-    }
+			}
 
-    Mutation mutInsert = new Mutation(key.getBytes(UTF_8));
-    for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
-      mutInsert.put(colFamBytes, entry.getKey().getBytes(UTF_8), entry.getValue().toArray());
-    }
+			return Status.OK;
 
-    try {
-      bw.addMutation(mutInsert);
-    } catch (MutationsRejectedException e) {
-      System.err.println("Error performing update.");
-      e.printStackTrace();
-      return Status.ERROR;
-    }
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println(e.toString());
 
-    return Status.BATCHED_OK;
-  }
+			return Status.ERROR;
+		}
+	}
 
-  @Override
-  public Status insert(String t, String key,
-                       Map<String, ByteIterator> values) {
-    return update(t, key, values);
-  }
+	public Status geoInsert(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		System.err.println("geoInsert not implemented");
+		return null;
+	}
 
-  @Override
-  public Status delete(String table, String key) {
-    BatchWriter bw;
-    try {
-      bw = getWriter(table);
-    } catch (TableNotFoundException e) {
-      System.err.println("Error trying to connect to Accumulo table.");
-      e.printStackTrace();
-      return Status.ERROR;
-    }
+	// a geoInsert that works on multiple tables
+	public Status geoInsert(String table, String value, ParameterGenerator gen) {
+		JSONObject obj = new JSONObject(value);
+		try {
+			SimpleFeatureType sft = datastore.getSchema(table);
+			SimpleFeature f = null;
+			if (table == "counties") {
+				f = createCounty(sft, value);
+			}
+			if (table == "routes") {
+				f = createRoute(sft, value);
+			}
+			if (f != null) {
+				FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore
+						.getFeatureWriterAppend(sft.getTypeName(), Transaction.AUTO_COMMIT);
+				SimpleFeature toWrite = writer.next();
+				toWrite.setAttributes(f.getAttributes());
+				toWrite.getUserData().putAll(f.getUserData());
+				writer.write();
+			}
+		} catch (IOException e) {
+			System.out.println("Schema is no in database, please pre-populate data.");
+			e.printStackTrace();
+			return Status.ERROR;
+		}
+		return null;
+	}
 
-    try {
-      deleteRow(table, new Text(key), bw);
-    } catch (TableNotFoundException | MutationsRejectedException e) {
-      System.err.println("Error performing delete.");
-      e.printStackTrace();
-      return Status.ERROR;
-    } catch (RuntimeException e) {
-      System.err.println("Error performing delete.");
-      e.printStackTrace();
-      return Status.ERROR;
-    }
+	private SimpleFeature createCounty(SimpleFeatureType sft, String value) {
+		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
+		SimpleFeature feature = null;
+		try {
+			JSONObject obj = new JSONObject(value);
+			JSONObject properties = obj.getJSONObject("properties");
 
-    return Status.OK;
-  }
+			if (obj != null) {
 
-  // These functions are adapted from RowOperations.java:
-  private void deleteRow(String table, Text row, BatchWriter bw) throws MutationsRejectedException,
-          TableNotFoundException {
-    // TODO Use a batchDeleter instead
-    deleteRow(getRow(table, row, null), bw);
-  }
+				builder.set("type", obj.getString("type"));
+				builder.set("_id", obj.getInt("id"));
+				builder.set("N03_001", properties.optString("N03_001"));
+				builder.set("N03_002", properties.optString("N03_002"));
+				builder.set("N03_003", properties.optString("N03_003"));
+				builder.set("N03_004", properties.optString("N03_004"));
+				builder.set("N03_007", properties.optString("N03_007"));
+				builder.set("_color", properties.optString("_color"));
+				builder.set("_opacity", properties.getInt("_opacity"));
+				builder.set("_weight", properties.getInt("_weight"));
+				builder.set("_fillColor", properties.optString("_fillColor"));
+				builder.set("_fillOpacity", properties.getDouble("_fillOpacity"));
+				builder.set("geometry", obj.getString("geometry"));
 
-  /**
-   * Deletes a row, given a Scanner of JUST that row.
-   */
-  private void deleteRow(Scanner scanner, BatchWriter bw) throws MutationsRejectedException {
-    Mutation deleter = null;
-    // iterate through the keys
-    final Text row = new Text();
-    final Text cf = new Text();
-    final Text cq = new Text();
-    for (Entry<Key, Value> entry : scanner) {
-      // create a mutation for the row
-      if (deleter == null) {
-        entry.getKey().getRow(row);
-        deleter = new Mutation(row);
-      }
-      entry.getKey().getColumnFamily(cf);
-      entry.getKey().getColumnQualifier(cq);
-      // the remove function adds the key with the delete flag set to true
-      deleter.putDelete(cf, cq);
-    }
+				// Generate UUID as the fid
+				feature = builder.buildFeature(null);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return feature;
+	}
 
-    bw.addMutation(deleter);
-  }
+	private SimpleFeature createRoute(SimpleFeatureType sft, String value) {
+		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(sft);
+		SimpleFeature feature = null;
+		try {
+			JSONObject obj = new JSONObject(value);
+			JSONObject properties = obj.getJSONObject("properties");
 
+			if (obj != null) {
 
-  public Status geoUseCase4(String table, HashMap<String, 
-      Vector<HashMap<String, ByteIterator>>> result, ParameterGenerator gen){
-    return Status.ERROR;
-  }
+				builder.set("type", obj.getString("type"));
+				builder.set("N07_001", properties.getInt("N07_001"));
+				builder.set("N07_002", properties.optString("N07_002"));
+				builder.set("N07_003", properties.optString("N07_003"));
+				builder.set("N07_004", properties.getInt("N07_004"));
+				builder.set("N07_005", properties.getInt("N07_005"));
+				builder.set("N07_006", properties.getInt("N07_006"));
+				builder.set("N07_007", properties.optString("N07_007"));
+				builder.set("geometry", obj.getString("geometry"));
+
+				// Generate UUID as the fid
+				feature = builder.buildFeature(null);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return feature;
+	}
+
+	public Status geoUpdate(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		System.err.println("geoUpdate not implemented");
+		return null;
+	}
+
+	public Status geoNear(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		System.err.println("geoNear not implemented");
+		return null;
+	}
+
+	public Status geoBox(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+
+		return Status.OK;
+	}
+
+	/* DE-9IM Methods */
+	public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		// Create DataFrame using the "geomesa" format
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where NOT st_intersects(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Intesect ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+
+	}
+
+	public Status geoDisjoint(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		System.out.println(table);
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Disjoint(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Disjoint ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoTouches(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Touches(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Touches ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoCrosses(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Crosses ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			//System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoWithin(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Within(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Within ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoContains(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Contains(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Contains ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoOverlaps(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Overlaps(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Overlaps ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoEquals(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Equals(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Equals ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+	
+	public Status geoCovers(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Covers(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		System.out.println(String.format("Query %s: Covers ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoScan(String table, Vector<HashMap<String, ByteIterator>> result, ParameterGenerator gen) {
+		System.err.println("geoScan not implemented");
+		return null;
+	}
+
+	/* Non-Geo functions not used */
+	@Override
+	public Status read(String table, String key, Set<String> fields, HashMap<String, ByteIterator> result) {
+		// not use in geoycsb
+		return null;
+	}
+
+	@Override
+	public Status update(String table, String key, HashMap<String, ByteIterator> values) {
+		// not use in geoycsb
+		return null;
+	}
+
+	@Override
+	public Status insert(String table, String key, HashMap<String, ByteIterator> values) {
+		// not use in geoycsb
+		return null;
+	}
+
+	@Override
+	public Status delete(String table, String key) {
+		// not use in geoycsb
+		return null;
+	}
+
+	@Override
+	public Status scan(String table, String startkey, int recordcount, Set<String> fields,
+			Vector<HashMap<String, ByteIterator>> result) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }
