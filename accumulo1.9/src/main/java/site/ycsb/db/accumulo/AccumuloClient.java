@@ -335,7 +335,7 @@ public class AccumuloClient extends GeoDB {
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
-		String sqlQuery = "select * from %s where NOT st_intersects(st_geomFromWKT('%s'), %s)";
+		String sqlQuery = "select * from %s where st_intersects(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
 		System.out.println(String.format("Query %s: Intesect ::: %s", table,  wktGeom));
 		try {
