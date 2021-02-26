@@ -11,6 +11,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.geotools.geojson.geom.GeometryJSON;
 import org.json.*;
 import org.locationtech.geomesa.utils.interop.SimpleFeatureTypes;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
 import org.opengis.feature.simple.SimpleFeatureType;
 
@@ -37,11 +41,12 @@ public abstract class ParameterGenerator {
   private static AtomicInteger nextLoadDocKeyCounties = new AtomicInteger(0);
   private static AtomicInteger nextLoadDocKeyRoutes = new AtomicInteger(0);
   private static AtomicInteger nextGeoKeyCounties = new AtomicInteger(0);  
+  private static AtomicInteger nextGeoKeyRoutes = new AtomicInteger(0);  
   
   private int nextInsertDocKeyCounties = 0;
   private int nextInsertDocKeyRoutes = 0;
   
-  private static final double CHANCE_TO_ADD_DOC_AS_PARAMETER = 1;
+  private static final double CHANCE_TO_ADD_DOC_AS_PARAMETER = 0.1;
   
   private Properties properties;
   private int queryLimitMin = 0;
@@ -102,6 +107,8 @@ public abstract class ParameterGenerator {
   private static final String GEO_FIELD_ROUTES_GEOMETRY = "geometry";
   private static final String GEO_FIELD_ROUTES_GEOMETRY_OBJ_TYPE = "type";
   private static final String GEO_FIELD_ROUTES_GEOMETRY_OBJ_COORDINATES = "coordinates";
+  
+  private static final double BOUNDING_BOX_OFFSET = 0.5;  //50km ~ 0.5 degree
   
   private final Map<String, Set<String>> allGeoFields = new HashMap<String, Set<String>>() {{
     put(GEO_DOCUMENT_PREFIX_COUNTIES, new HashSet<String>() {{
@@ -243,6 +250,10 @@ public abstract class ParameterGenerator {
     case GEO_DOCUMENT_PREFIX_COUNTIES:
       return Integer.parseInt(getVal(GEO_DOCUMENT_PREFIX_COUNTIES + GEO_SYSTEMFIELD_DELIMITER 
             + GEO_SYSTEMFIELD_STORAGEGEO_COUNT));
+    case GEO_DOCUMENT_PREFIX_ROUTES:
+        return Integer.parseInt(getVal(GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER 
+              + GEO_SYSTEMFIELD_STORAGEGEO_COUNT));
+
     default:
       return 0;
     }
@@ -339,6 +350,20 @@ public abstract class ParameterGenerator {
         nextGeoKey = nextGeoKeyCounties.getAndIncrement();
       }
       break;
+    case GEO_DOCUMENT_PREFIX_ROUTES:
+        // turn docBody to JSON
+        jsonDoc = new JSONObject(docBody);
+        
+        // check if geometry field exists
+        if (jsonDoc.has(GEO_FIELD_ROUTES_GEOMETRY) && !jsonDoc.isNull(GEO_FIELD_ROUTES_GEOMETRY)) {
+          JSONObject geoObj = jsonDoc.getJSONObject(GEO_FIELD_ROUTES_GEOMETRY);     // extract geometry field
+          docGeometry = geoObj.toString();
+          
+          prefix = GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER + GEO_SYSTEMFIELD_GEOMETRY;
+          storageCount = increment(GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER + GEO_SYSTEMFIELD_STORAGEGEO_COUNT, 1);    // increment counter
+          nextGeoKey = nextGeoKeyRoutes.getAndIncrement();
+        }
+        break;
     default:
       break;
     }
@@ -374,6 +399,21 @@ public abstract class ParameterGenerator {
 	        nextGeoKey = nextGeoKeyCounties.getAndIncrement();
 	      }
 	      break;
+	    case GEO_DOCUMENT_PREFIX_ROUTES:
+		      // turn docBody to JSON
+		      jsonDoc = new JSONObject(docBody);
+
+		     // System.out.println(jsonDoc.toString());
+		      // check if geometry field exists
+		      if (jsonDoc.has(GEO_FIELD_ROUTES_GEOMETRY) && !jsonDoc.isNull(GEO_FIELD_ROUTES_GEOMETRY)) {
+		    	docGeometry = jsonDoc.getString(GEO_FIELD_ROUTES_GEOMETRY);     // extract wkt geom field
+		       
+		        
+		        prefix = GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER + GEO_SYSTEMFIELD_GEOMETRY;
+		        storageCount = increment(GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER + GEO_SYSTEMFIELD_STORAGEGEO_COUNT, 1);    // increment counter
+		        nextGeoKey = nextGeoKeyRoutes.getAndIncrement();
+		      }
+		      break;
 	    default:
 	      break;
 	    }
@@ -428,6 +468,9 @@ public abstract class ParameterGenerator {
     case GEO_DOCUMENT_PREFIX_COUNTIES:
       prefix = GEO_DOCUMENT_PREFIX_COUNTIES + GEO_SYSTEMFIELD_DELIMITER;
       break;
+    case GEO_DOCUMENT_PREFIX_ROUTES:
+        prefix = GEO_DOCUMENT_PREFIX_ROUTES + GEO_SYSTEMFIELD_DELIMITER;
+        break;
     default:
       break;
     }
@@ -625,7 +668,7 @@ public abstract class ParameterGenerator {
   public void buildGeoReadPredicate() {
     geoPredicate = new DataFilter();
     
-    // nestedPredicateA.name = "geometry"
+    // country parameter
     DataFilter nestedA = new DataFilter();
     nestedA.setName(GEO_FIELD_COUNTIES_GEOMETRY);
 
@@ -636,8 +679,42 @@ public abstract class ParameterGenerator {
    
     nestedA.setValue(geo); // geo should be WKT 
 
+    // route parameter
+    DataFilter nestedB = new DataFilter();
+    nestedB.setName(GEO_FIELD_ROUTES_GEOMETRY);
+    maxKey = getStoredGeoCount(GEO_DOCUMENT_PREFIX_ROUTES);
     
+    geo = getGeometryDocument(GEO_DOCUMENT_PREFIX_ROUTES, rand.nextInt(maxKey) + "");
+    
+    nestedB.setValue(geo); // geo should be WKT 
+    
+    // generated bbox for overlaps in WKT
+    DataFilter nestedC = new DataFilter();
+    nestedC.setName(GEO_FIELD_ROUTES_GEOMETRY);
+    WKTReader reader = new WKTReader();
+    Geometry geom = null;
+    try {
+		geom = reader.read(geo);
+	} catch (ParseException e) {
+		e.printStackTrace();
+		throw new RuntimeException("Error when creating overlap parameter");
+	}
+    // BOUNDING_BOX_OFFSET
+    Coordinate pt = geom.getCoordinate();
+    double x = pt.getX();
+    double y = pt.getY();
+    nestedC.setValue(String.format("Polygon((%s %s, %s %s, %s %s, %s %s, %s %s))", 
+    		String.valueOf(x),String.valueOf(y), 
+    		String.valueOf(x + BOUNDING_BOX_OFFSET),String.valueOf(y),
+    		String.valueOf(x + BOUNDING_BOX_OFFSET),String.valueOf(y + BOUNDING_BOX_OFFSET),
+    		String.valueOf(x),String.valueOf(y + BOUNDING_BOX_OFFSET),
+    		String.valueOf(x),String.valueOf(y)
+    		));
+    
+    System.out.print("$$"+ nestedC.getValue());
     geoPredicate.setNestedPredicateA(nestedA);
+    geoPredicate.setNestedPredicateB(nestedB);
+    geoPredicate.setNestedPredicateB(nestedC);
   }
 
   

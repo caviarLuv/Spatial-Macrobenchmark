@@ -296,7 +296,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoDisjoint(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoDisjoint(table, cells, generator); //query counties
+			db.geoDisjoint(table2, cells, generator); //query routes
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);
@@ -306,7 +306,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoIntersect(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoIntersect(table, cells, generator); //query routes
+			db.geoIntersect(table2, cells, generator); //query routes
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);
@@ -316,7 +316,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoTouches(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoTouches(table, cells, generator); //query counties
+			db.geoTouches(table2, cells, generator); //query routes
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);
@@ -356,7 +356,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoCovers(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoCovers(table, cells, generator); //query routes
+			db.geoCovers(table2, cells, generator); //query routes
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);
@@ -366,7 +366,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoOverlaps(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoOverlaps(table2, cells, generator); //test routes
+			db.geoOverlaps(table, cells, generator); //query county
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);
@@ -376,7 +376,7 @@ public class GeoWorkload extends CoreWorkload {
 	public void doTransactionGeoEquals(GeoDB db, ParameterGenerator generator) {
 		try {
 			HashMap<String, ByteIterator> cells = new HashMap<String, ByteIterator>();
-			db.geoEquals(table, cells, generator); //query counties
+			db.geoEquals(table2, cells, generator); //query routes
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			ex.printStackTrace(System.out);

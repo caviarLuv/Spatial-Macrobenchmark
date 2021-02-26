@@ -130,19 +130,19 @@ public class AccumuloClient extends GeoDB {
 		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); //set precision
 		try {
 			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
-				while (reader.hasNext()) {
-					SimpleFeature data = reader.next();
-					generator.putOriginalDocument(table, io.toString(data));
-					System.out.println(io.toString(data));
-				}
-//
-//			// for testing a smaller dataset
-//			for (int i = 0; i < 200; i++) {
-//				SimpleFeature data = reader.next();
-//				System.out.println("###original: " + DataUtilities.encodeFeature(data));
-//				//System.out.println("before:" + io.toString(data));
-//				generator.putOriginalDocument(table, io.toString(data));
-//			}
+//				while (reader.hasNext()) {
+//					SimpleFeature data = reader.next();
+//					generator.putOriginalDocument(table, io.toString(data));
+//					System.out.println(io.toString(data));
+//				}
+
+			// for testing a smaller dataset
+			for (int i = 0; i < 100; i++) {
+				SimpleFeature data = reader.next();
+				System.out.println("###original: " + DataUtilities.encodeFeature(data));
+				//System.out.println("143#:" + io.toString(data));
+				generator.putOriginalDocument(table, io.toString(data));
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -185,7 +185,7 @@ public class AccumuloClient extends GeoDB {
 			// Load EVERY document of the collection
 
 			// i < generator.getTotalDocsCount(table)
-			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
+			for (int i = 0; i < 100; i++) {
 				// Get the random document from memcached
 				String value = generator.getOriginalDocument(table, i + "");
 				if (value == null) {
@@ -194,13 +194,13 @@ public class AccumuloClient extends GeoDB {
 					System.out.println("Empty return, Please populate data first.");
 					return Status.OK;
 				}
-
+				System.out.println("|||||"+value);
 				/* Synthesize */
-				//String newDocBody = generator.buildGeoLoadDocument(table, i); // {..., geometry: "Polygon(...)"} WKT
+				String newDocBody = generator.buildGeoLoadDocument(table, i); // {..., geometry: "Polygon(...)"} WKT
 																				// format
-				//System.out.println(newDocBody);
+				
 				// Add to database
-				// geoInsert(table, newDocBody, generator);
+				geoInsert(table, newDocBody, generator);
 
 			}
 
@@ -221,7 +221,6 @@ public class AccumuloClient extends GeoDB {
 
 	// a geoInsert that works on multiple tables
 	public Status geoInsert(String table, String value, ParameterGenerator gen) {
-		JSONObject obj = new JSONObject(value);
 		try {
 			SimpleFeatureType sft = datastore.getSchema(table);
 			SimpleFeature f = null;
@@ -255,9 +254,9 @@ public class AccumuloClient extends GeoDB {
 			JSONObject properties = obj.getJSONObject("properties");
 
 			if (obj != null) {
-
+				System.out.println("insert  257" + obj.toString());
 				builder.set("type", obj.getString("type"));
-				builder.set("_id", obj.getInt("id"));
+				builder.set("_id", properties.getInt("_id"));
 				builder.set("N03_001", properties.optString("N03_001"));
 				builder.set("N03_002", properties.optString("N03_002"));
 				builder.set("N03_003", properties.optString("N03_003"));
@@ -331,8 +330,8 @@ public class AccumuloClient extends GeoDB {
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_intersects(st_geomFromWKT('%s'), %s)";
@@ -342,6 +341,7 @@ public class AccumuloClient extends GeoDB {
 			
 			Row first = resultDataFrame.first();
 			System.out.println(first.mkString(" | "));
+			
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {
@@ -358,8 +358,8 @@ public class AccumuloClient extends GeoDB {
 		System.out.println(table);
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Disjoint(st_geomFromWKT('%s'), %s)";
@@ -383,8 +383,8 @@ public class AccumuloClient extends GeoDB {
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Touches(st_geomFromWKT('%s'), %s)";
@@ -408,8 +408,8 @@ public class AccumuloClient extends GeoDB {
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";
@@ -483,8 +483,8 @@ public class AccumuloClient extends GeoDB {
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateC().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateC().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Overlaps(st_geomFromWKT('%s'), %s)";
@@ -508,8 +508,8 @@ public class AccumuloClient extends GeoDB {
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Equals(st_geomFromWKT('%s'), %s)";

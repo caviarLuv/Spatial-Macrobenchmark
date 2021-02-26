@@ -100,7 +100,9 @@ public class MemcachedGenerator extends ParameterGenerator {
       if (client.get(prefix + GEO_SYSTEMFIELD_STORAGEDOCS_COUNT) == null) {
         client.add(prefix + GEO_SYSTEMFIELD_STORAGEDOCS_COUNT, 0, "0");
       }
-      
+      if (client.get(prefix + GEO_SYSTEMFIELD_STORAGEGEO_COUNT) == null) {
+          client.add(prefix + GEO_SYSTEMFIELD_STORAGEGEO_COUNT, 0, "0");
+        }
     } catch (Exception e) {
       System.err.println("Memcached init error" + e.getMessage());
       throw e;
