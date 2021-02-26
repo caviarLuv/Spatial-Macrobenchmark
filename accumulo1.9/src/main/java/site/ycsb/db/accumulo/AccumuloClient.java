@@ -98,7 +98,9 @@ public class AccumuloClient extends GeoDB {
 				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
 			}
 	
-			sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+			sparkSession = SparkSession.builder().appName("testSpark")
+					.config("spark.executor.memory", "4g")
+					.config("spark.driver.memory", "20g")
 					.master("local[*]").getOrCreate();
 			// create datastore
 			try {
