@@ -108,7 +108,7 @@ public abstract class ParameterGenerator {
   private static final String GEO_FIELD_ROUTES_GEOMETRY_OBJ_TYPE = "type";
   private static final String GEO_FIELD_ROUTES_GEOMETRY_OBJ_COORDINATES = "coordinates";
   
-  private static final double BOUNDING_BOX_OFFSET = 0.5;  //50km ~ 0.5 degree
+  private static final double BOUNDING_BOX_OFFSET = 0.2;  //20km ~ 0.2 degree
   
   private final Map<String, Set<String>> allGeoFields = new HashMap<String, Set<String>>() {{
     put(GEO_DOCUMENT_PREFIX_COUNTIES, new HashSet<String>() {{
@@ -429,7 +429,6 @@ public abstract class ParameterGenerator {
   
   private boolean rollChanceToAddDocAsParameter(String table, String docBody) {
     if(Math.random() < CHANCE_TO_ADD_DOC_AS_PARAMETER) {
- System.out.println("dice: " + docBody);
       putWKTDocument(table, docBody);
       return true;
     }
@@ -711,10 +710,10 @@ public abstract class ParameterGenerator {
     		String.valueOf(x),String.valueOf(y)
     		));
     
-    System.out.print("$$"+ nestedC.getValue());
+  
     geoPredicate.setNestedPredicateA(nestedA);
     geoPredicate.setNestedPredicateB(nestedB);
-    geoPredicate.setNestedPredicateB(nestedC);
+    geoPredicate.setNestedPredicateC(nestedC);
   }
 
   

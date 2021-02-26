@@ -58,6 +58,7 @@ import site.ycsb.generator.geo.ParameterGenerator;
 public class AccumuloClient extends GeoDB {
 
 	private static DataStore datastore;
+	private static SparkSession sparkSession;
 	private static Map<String, String> parameters;
 	//private static SparkSession sparkSession;
 	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
@@ -97,6 +98,8 @@ public class AccumuloClient extends GeoDB {
 				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
 			}
 	
+			sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+					.master("local[*]").getOrCreate();
 			// create datastore
 			try {
 				datastore = DataStoreFinder.getDataStore(parameters);
@@ -130,19 +133,19 @@ public class AccumuloClient extends GeoDB {
 		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); //set precision
 		try {
 			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
-//				while (reader.hasNext()) {
-//					SimpleFeature data = reader.next();
-//					generator.putOriginalDocument(table, io.toString(data));
-//					System.out.println(io.toString(data));
-//				}
+				while (reader.hasNext()) {
+					SimpleFeature data = reader.next();
+					generator.putOriginalDocument(table, io.toString(data));
+					//System.out.println(io.toString(data));
+				}
 
 			// for testing a smaller dataset
-			for (int i = 0; i < 100; i++) {
-				SimpleFeature data = reader.next();
-				System.out.println("###original: " + DataUtilities.encodeFeature(data));
-				//System.out.println("143#:" + io.toString(data));
-				generator.putOriginalDocument(table, io.toString(data));
-			}
+//			for (int i = 0; i < 100; i++) {
+//				SimpleFeature data = reader.next();
+//				System.out.println("###original: " + DataUtilities.encodeFeature(data));
+//				//System.out.println("143#:" + io.toString(data));
+//				generator.putOriginalDocument(table, io.toString(data));
+//			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -185,7 +188,7 @@ public class AccumuloClient extends GeoDB {
 			// Load EVERY document of the collection
 
 			// i < generator.getTotalDocsCount(table)
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
 				// Get the random document from memcached
 				String value = generator.getOriginalDocument(table, i + "");
 				if (value == null) {
@@ -194,7 +197,7 @@ public class AccumuloClient extends GeoDB {
 					System.out.println("Empty return, Please populate data first.");
 					return Status.OK;
 				}
-				System.out.println("|||||"+value);
+		
 				/* Synthesize */
 				String newDocBody = generator.buildGeoLoadDocument(table, i); // {..., geometry: "Polygon(...)"} WKT
 																				// format
@@ -254,7 +257,6 @@ public class AccumuloClient extends GeoDB {
 			JSONObject properties = obj.getJSONObject("properties");
 
 			if (obj != null) {
-				System.out.println("insert  257" + obj.toString());
 				builder.set("type", obj.getString("type"));
 				builder.set("_id", properties.getInt("_id"));
 				builder.set("N03_001", properties.optString("N03_001"));
@@ -323,8 +325,8 @@ public class AccumuloClient extends GeoDB {
 
 	/* DE-9IM Methods */
 	public Status geoIntersect(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		// Create DataFrame using the "geomesa" format
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
@@ -336,11 +338,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_intersects(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Intesect ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Intesect ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			
 			return Status.OK;
 			
@@ -351,11 +353,11 @@ public class AccumuloClient extends GeoDB {
 	}
 
 	public Status geoDisjoint(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
-		System.out.println(table);
+		//System.out.println(table);
 		dataFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
@@ -364,57 +366,7 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Disjoint(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Disjoint ::: %s", table,  wktGeom));
-		try {
-			
-			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
-			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
-			return Status.NOT_FOUND;
-		}
-	}
-
-	public Status geoTouches(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
-		
-		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
-
-		// Query
-		String sqlQuery = "select * from %s where st_Touches(st_geomFromWKT('%s'), %s)";
-		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Touches ::: %s", table,  wktGeom));
-		try {
-			
-			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
-			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
-			return Status.NOT_FOUND;
-		}
-	}
-
-	public Status geoCrosses(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
-		
-		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
-
-		// Query
-		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";
-		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Crosses ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Disjoint ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
@@ -426,9 +378,59 @@ public class AccumuloClient extends GeoDB {
 		}
 	}
 
+	public Status geoTouches(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Touches(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		//System.out.println(String.format("Query %s: Touches ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			//System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
+	public Status geoCrosses(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
+		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+				.option("geomesa.feature", table).load();
+		dataFrame.createOrReplaceTempView(table);
+		
+		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
+
+		// Query
+		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";
+		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
+		//System.out.println(String.format("Query %s: Crosses ::: %s", table,  wktGeom));
+		try {
+			
+			Row first = resultDataFrame.first();
+			////System.out.println(first.mkString(" | "));
+			return Status.OK;
+			
+		}catch(NoSuchElementException e) {
+			return Status.NOT_FOUND;
+		}
+	}
+
 	public Status geoWithin(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
@@ -439,11 +441,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Within(%s, st_geomFromWKT('%s'))";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, field, wktGeom));
-		System.out.println(String.format("Query %s: Within ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Within ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {
@@ -452,8 +454,8 @@ public class AccumuloClient extends GeoDB {
 	}
 
 	public Status geoContains(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
@@ -464,11 +466,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Contains(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Contains ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Contains ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {
@@ -477,8 +479,8 @@ public class AccumuloClient extends GeoDB {
 	}
 
 	public Status geoOverlaps(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
@@ -489,11 +491,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Overlaps(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Overlaps ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Overlaps ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {
@@ -502,8 +504,8 @@ public class AccumuloClient extends GeoDB {
 	}
 
 	public Status geoEquals(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
@@ -514,11 +516,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Equals(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Equals ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Equals ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {
@@ -527,8 +529,8 @@ public class AccumuloClient extends GeoDB {
 	}
 	
 	public Status geoCovers(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
-		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
-				.master("local[*]").getOrCreate();
+//		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
+//				.master("local[*]").getOrCreate();
 		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 				.option("geomesa.feature", table).load();
 		dataFrame.createOrReplaceTempView(table);
@@ -539,11 +541,11 @@ public class AccumuloClient extends GeoDB {
 		// Query
 		String sqlQuery = "select * from %s where st_Covers(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		System.out.println(String.format("Query %s: Covers ::: %s", table,  wktGeom));
+		//System.out.println(String.format("Query %s: Covers ::: %s", table,  wktGeom));
 		try {
 			
 			Row first = resultDataFrame.first();
-			System.out.println(first.mkString(" | "));
+			//System.out.println(first.mkString(" | "));
 			return Status.OK;
 			
 		}catch(NoSuchElementException e) {

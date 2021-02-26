@@ -17,11 +17,11 @@ workload=site.ycsb.workloads.geo.GeoWorkload
 
 geo_disjoint=0
 geo_intersect=0
-geo_touches=1
+geo_touches=0
 geo_crosses=0
 geo_within=0
 geo_contains=0
-geo_overlaps=0
+geo_overlaps=1
 geo_equals=0
 geo_covers=0
 
