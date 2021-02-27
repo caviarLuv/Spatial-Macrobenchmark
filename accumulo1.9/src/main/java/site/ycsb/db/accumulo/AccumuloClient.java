@@ -59,6 +59,8 @@ public class AccumuloClient extends GeoDB {
 
 	private static DataStore datastore;
 	private static SparkSession sparkSession;
+	private static Dataset<Row> countiesFrame;
+	private static Dataset<Row> routesFrame;
 	private static Map<String, String> parameters;
 	//private static SparkSession sparkSession;
 	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
@@ -102,6 +104,11 @@ public class AccumuloClient extends GeoDB {
 					.config("spark.executor.memory", "4g")
 					.config("spark.driver.memory", "20g")
 					.master("local[*]").getOrCreate();
+			
+			countiesFrame = sparkSession.read().format("geomesa").options(parameters)
+					.option("geomesa.feature", "counties").load();
+			routesFrame = sparkSession.read().format("geomesa").options(parameters)
+					.option("geomesa.feature", "routes").load();
 			// create datastore
 			try {
 				datastore = DataStoreFinder.getDataStore(parameters);
@@ -330,9 +337,9 @@ public class AccumuloClient extends GeoDB {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
 		// Create DataFrame using the "geomesa" format
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
@@ -357,10 +364,10 @@ public class AccumuloClient extends GeoDB {
 	public Status geoDisjoint(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
 		//System.out.println(table);
-		dataFrame.createOrReplaceTempView(table);
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
@@ -383,9 +390,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoTouches(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
@@ -408,9 +415,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoCrosses(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
@@ -433,9 +440,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoWithin(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
@@ -458,9 +465,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoContains(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
@@ -483,9 +490,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoOverlaps(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		countiesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateC().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateC().getValue();
@@ -508,9 +515,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoEquals(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
@@ -533,9 +540,9 @@ public class AccumuloClient extends GeoDB {
 	public Status geoCovers(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
-		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
-				.option("geomesa.feature", table).load();
-		dataFrame.createOrReplaceTempView(table);
+//		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
+//				.option("geomesa.feature", table).load();
+		routesFrame.createOrReplaceTempView(table);
 		
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
