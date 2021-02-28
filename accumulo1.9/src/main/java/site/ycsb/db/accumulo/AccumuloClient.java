@@ -197,7 +197,9 @@ System.out.println("table size: " + count);
 		try {
 			System.out.println("geoloading");
 			// Load EVERY document of the collection
-
+			SimpleFeatureType sft = datastore.getSchema(table);
+			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore
+					.getFeatureWriterAppend(sft.getTypeName(), Transaction.AUTO_COMMIT);
 			// i < generator.getTotalDocsCount(table)
 			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
 				// Get the random document from memcached
@@ -214,12 +216,12 @@ System.out.println("table size: " + count);
 																				// format
 				
 				// Add to database
-				if (geoInsert(table, newDocBody, generator) == Status.ERROR) {
+				if (geoInsert(table, newDocBody, sft, writer) == Status.ERROR) {
 					return Status.ERROR;
 				}
 
 			}
-
+			writer.close();
 			return Status.OK;
 
 		} catch (Exception e) {
@@ -235,9 +237,8 @@ System.out.println("table size: " + count);
 	}
 
 	// a geoInsert that works on multiple tables
-	public Status geoInsert(String table, String value, ParameterGenerator gen) {
+	public Status geoInsert(String table, String value, SimpleFeatureType sft, FeatureWriter<SimpleFeatureType, SimpleFeature> writer) {
 		try {
-			SimpleFeatureType sft = datastore.getSchema(table);
 			SimpleFeature f = null;
 			if (table == "counties") {
 				f = createCounty(sft, value);
@@ -246,8 +247,7 @@ System.out.println("table size: " + count);
 				f = createRoute(sft, value);
 			}
 			if (f != null) {
-				FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore
-						.getFeatureWriterAppend(sft.getTypeName(), Transaction.AUTO_COMMIT);
+				
 				SimpleFeature toWrite = writer.next();
 				toWrite.setAttributes(f.getAttributes());
 				toWrite.getUserData().putAll(f.getUserData());
