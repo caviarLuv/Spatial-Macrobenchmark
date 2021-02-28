@@ -87,7 +87,7 @@ public class AccumuloClient extends GeoDB {
 			String user = props.getProperty("user", "myUser");
 			String pw = props.getProperty("password", "geomesa");
 			String catalog = props.getProperty("catalog", "myNamespace.geomesa");
-			String instance = props.getProperty("instance", "testdb");
+			String instance = props.getProperty("instance", "geoycsb");
 
 			parameters = new HashMap<>();
 			parameters.put("accumulo.instance.id", instance);
@@ -104,7 +104,7 @@ public class AccumuloClient extends GeoDB {
 					.config("spark.executor.memory", "4g")
 					.config("spark.driver.memory", "20g")
 					.master("local[*]").getOrCreate();
-			
+sparkSession.sparkContext().setLogLevel("ERROR");			
 			countiesFrame = sparkSession.read().format("geomesa").options(parameters)
 					.option("geomesa.feature", "counties").load();
 			routesFrame = sparkSession.read().format("geomesa").options(parameters)
@@ -142,12 +142,14 @@ public class AccumuloClient extends GeoDB {
 		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); //set precision
 		try {
 			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
-				while (reader.hasNext()) {
+			int count = 0;	
+			while (reader.hasNext()) {
 					SimpleFeature data = reader.next();
 					generator.putOriginalDocument(table, io.toString(data));
 					//System.out.println(io.toString(data));
-				}
-
+			count++;	
+			}
+System.out.println("table size: " + count);
 			// for testing a smaller dataset
 //			for (int i = 0; i < 100; i++) {
 //				SimpleFeature data = reader.next();
@@ -212,7 +214,9 @@ public class AccumuloClient extends GeoDB {
 																				// format
 				
 				// Add to database
-				geoInsert(table, newDocBody, generator);
+				if (geoInsert(table, newDocBody, generator) == Status.ERROR) {
+					return Status.ERROR;
+				}
 
 			}
 
@@ -220,7 +224,6 @@ public class AccumuloClient extends GeoDB {
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			System.err.println(e.toString());
 
 			return Status.ERROR;
 		}
@@ -249,13 +252,14 @@ public class AccumuloClient extends GeoDB {
 				toWrite.setAttributes(f.getAttributes());
 				toWrite.getUserData().putAll(f.getUserData());
 				writer.write();
+		//		System.out.println("wrote: " + DataUtilities.encodeFeature(f));
 			}
 		} catch (IOException e) {
-			System.out.println("Schema is no in database, please pre-populate data.");
+			System.out.println("Schema is not in database, please pre-populate data.");
 			e.printStackTrace();
 			return Status.ERROR;
 		}
-		return null;
+		return Status.OK;
 	}
 
 	private SimpleFeature createCounty(SimpleFeatureType sft, String value) {
@@ -419,8 +423,8 @@ public class AccumuloClient extends GeoDB {
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
 		
-		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
-		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
+		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
+		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";

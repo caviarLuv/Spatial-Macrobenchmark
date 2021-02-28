@@ -24,14 +24,14 @@ public class GeoWorkload extends CoreWorkload {
 	public static final String STORAGE_PORT = "geo_storage_port";
 	public static final String STORAGE_PORT_DEFAULT = "11211";
 	public static final String TOTAL_DOCS = "totalrecordcount";
-	public static final String TOTAL_DOCS_DEFAULT = "5";  //118899
+	public static final String TOTAL_DOCS_DEFAULT = "118899";  //118899
 	public static final String DOCS_START_VALUE = "1001";  //not used
 
 	/* Additional tables required for macro-benchmarks */
 	public static final String TABLE2NAME_PROPERTY = "table2";
 	public static final String TABLE2NAME_PROPERTY_DEFAULT = "routes";
 	public static final String TOTAL_DOCS_TABLE2 = "table2_totalrecordcount";
-	public static final String TOTAL_DOCS_DEFAULT_TABLE2 = "5";  //26715
+	public static final String TOTAL_DOCS_DEFAULT_TABLE2 = "26715";  //26715
 	protected String table2;
 	/*-------------------------------------------------*/
 

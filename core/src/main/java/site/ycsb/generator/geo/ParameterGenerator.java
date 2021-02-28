@@ -46,7 +46,7 @@ public abstract class ParameterGenerator {
   private int nextInsertDocKeyCounties = 0;
   private int nextInsertDocKeyRoutes = 0;
   
-  private static final double CHANCE_TO_ADD_DOC_AS_PARAMETER = 0.1;
+  private static final double CHANCE_TO_ADD_DOC_AS_PARAMETER = 0.05;
   
   private Properties properties;
   private int queryLimitMin = 0;
@@ -553,8 +553,9 @@ public abstract class ParameterGenerator {
     
     // get the document
     while(docBody == null) {
-      System.out.println("STALL: " + keyPrefix + key);
+   //   System.out.println("STALL: " + keyPrefix + key);
       docBody = getOriginalDocument(table, key+"");
+     // System.out.println("STALL: " + keyPrefix + key+ " ::::  " + docBody);
     }
     
     // Synthesize data

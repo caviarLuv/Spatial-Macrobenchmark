@@ -1,6 +1,6 @@
 
 recordcount=1
-operationcount=100
+operationcount=5000
 # not for geo
 requestdistribution=uniform
 readallfields=true
