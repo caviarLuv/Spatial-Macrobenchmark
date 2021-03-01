@@ -382,7 +382,6 @@ public abstract class ParameterGenerator {
 	    int storageCount = 0;
 	    int nextGeoKey = 0;
 	    String docGeometry = null;
-	   // System.out.println(docBody);
 	    switch(table) {
 	    case GEO_DOCUMENT_PREFIX_COUNTIES:
 	      // turn docBody to JSON
@@ -418,6 +417,7 @@ public abstract class ParameterGenerator {
 	      break;
 	    }
 	    
+	    System.out.println("*****" + docGeometry);
 	    // add to memcached client
 	    // e.g. counties:::geo:::1 -> geometry json object
 	    if(docGeometry != null)
@@ -560,7 +560,7 @@ public abstract class ParameterGenerator {
     
     // Synthesize data
     String newDocBody = synthesize(table, docBody);  
-    
+    System.out.println("###new DOC ::: " + newDocBody);
     // there is a chance to add the geometry to memcached as a potential parameter:
     rollChanceToAddDocAsParameter(table, newDocBody);
     

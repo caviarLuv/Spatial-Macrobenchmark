@@ -29,7 +29,6 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 import org.apache.spark.sql.SparkSession;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
@@ -62,7 +61,7 @@ public class AccumuloClient extends GeoDB {
 	private static Dataset<Row> countiesFrame;
 	private static Dataset<Row> routesFrame;
 	private static Map<String, String> parameters;
-	//private static SparkSession sparkSession;
+	// private static SparkSession sparkSession;
 	private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
 
 	private static final AtomicInteger PRELOAD_COUNT = new AtomicInteger(1);
@@ -99,16 +98,13 @@ public class AccumuloClient extends GeoDB {
 			for (Entry<String, String> entry : parameters.entrySet()) {
 				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
 			}
-	
-			sparkSession = SparkSession.builder().appName("testSpark")
-					.config("spark.executor.memory", "4g")
-					.config("spark.driver.memory", "20g")
-					.master("local[*]").getOrCreate();
-sparkSession.sparkContext().setLogLevel("ERROR");			
+
+			sparkSession = SparkSession.builder().appName("testSpark").master("local[*]").getOrCreate();
+			sparkSession.sparkContext().setLogLevel("ERROR");
 			countiesFrame = sparkSession.read().format("geomesa").options(parameters)
 					.option("geomesa.feature", "counties").load();
-			routesFrame = sparkSession.read().format("geomesa").options(parameters)
-					.option("geomesa.feature", "routes").load();
+			routesFrame = sparkSession.read().format("geomesa").options(parameters).option("geomesa.feature", "routes")
+					.load();
 			// create datastore
 			try {
 				datastore = DataStoreFinder.getDataStore(parameters);
@@ -139,17 +135,17 @@ sparkSession.sparkContext().setLogLevel("ERROR");
 
 	public void preLoad(String table, ParameterGenerator generator) {
 		System.out.println("PRELOADING HERE  " + table);
-		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); //set precision
+		FeatureJSON io = new FeatureJSON(new GeometryJSON(12)); // set precision
 		try {
 			SimpleFeatureIterator reader = datastore.getFeatureSource(table).getFeatures().features();
-			int count = 0;	
+			int count = 0;
 			while (reader.hasNext()) {
-					SimpleFeature data = reader.next();
-					generator.putOriginalDocument(table, io.toString(data));
-					//System.out.println(io.toString(data));
-			count++;	
+				SimpleFeature data = reader.next();
+				generator.putOriginalDocument(table, io.toString(data));
+				// System.out.println(io.toString(data));
+				count++;
 			}
-System.out.println("table size: " + count);
+			System.out.println("table size: " + count);
 			// for testing a smaller dataset
 //			for (int i = 0; i < 100; i++) {
 //				SimpleFeature data = reader.next();
@@ -198,10 +194,10 @@ System.out.println("table size: " + count);
 			System.out.println("geoloading");
 			// Load EVERY document of the collection
 			SimpleFeatureType sft = datastore.getSchema(table);
-			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore
-					.getFeatureWriterAppend(sft.getTypeName(), Transaction.AUTO_COMMIT);
+			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriterAppend(sft.getTypeName(),
+					Transaction.AUTO_COMMIT);
 			// i < generator.getTotalDocsCount(table)
-			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
+			for (int i = 0; i < 5; i++) {
 				// Get the random document from memcached
 				String value = generator.getOriginalDocument(table, i + "");
 				if (value == null) {
@@ -210,11 +206,11 @@ System.out.println("table size: " + count);
 					System.out.println("Empty return, Please populate data first.");
 					return Status.OK;
 				}
-		
+
 				/* Synthesize */
 				String newDocBody = generator.buildGeoLoadDocument(table, i); // {..., geometry: "Polygon(...)"} WKT
 																				// format
-				
+
 				// Add to database
 				if (geoInsert(table, newDocBody, sft, writer) == Status.ERROR) {
 					return Status.ERROR;
@@ -237,7 +233,8 @@ System.out.println("table size: " + count);
 	}
 
 	// a geoInsert that works on multiple tables
-	public Status geoInsert(String table, String value, SimpleFeatureType sft, FeatureWriter<SimpleFeatureType, SimpleFeature> writer) {
+	public Status geoInsert(String table, String value, SimpleFeatureType sft,
+			FeatureWriter<SimpleFeatureType, SimpleFeature> writer) {
 		try {
 			SimpleFeature f = null;
 			if (table == "counties") {
@@ -247,12 +244,12 @@ System.out.println("table size: " + count);
 				f = createRoute(sft, value);
 			}
 			if (f != null) {
-				
+
 				SimpleFeature toWrite = writer.next();
 				toWrite.setAttributes(f.getAttributes());
 				toWrite.getUserData().putAll(f.getUserData());
 				writer.write();
-		//		System.out.println("wrote: " + DataUtilities.encodeFeature(f));
+				// System.out.println("wrote: " + DataUtilities.encodeFeature(f));
 			}
 		} catch (IOException e) {
 			System.out.println("Schema is not in database, please pre-populate data.");
@@ -344,22 +341,23 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_intersects(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Intesect ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Intesect ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
-			
+			// System.out.println(first.mkString(" | "));
+
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 
@@ -370,23 +368,24 @@ System.out.println("table size: " + count);
 //				.master("local[*]").getOrCreate();
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
-		//System.out.println(table);
+		// System.out.println(table);
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Disjoint(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Disjoint ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Disjoint ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -397,21 +396,22 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Touches(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Touches ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Touches ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -422,21 +422,22 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Crosses(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Crosses ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Crosses ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			////System.out.println(first.mkString(" | "));
+			//// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -447,21 +448,21 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Within(%s, st_geomFromWKT('%s'))";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, field, wktGeom));
-		//System.out.println(String.format("Query %s: Within ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Within ::: %s", table, wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -472,21 +473,22 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Contains(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Contains ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Contains ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -497,21 +499,22 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		countiesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateC().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateC().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Overlaps(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Overlaps ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Overlaps ::: %s", table,
+		// wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
@@ -522,46 +525,46 @@ System.out.println("table size: " + count);
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateB().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateB().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Equals(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Equals ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Equals ::: %s", table, wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
-	
+
 	public Status geoCovers(String table, HashMap<String, ByteIterator> result, ParameterGenerator gen) {
 //		SparkSession sparkSession = SparkSession.builder().appName("testSpark").config("spark.sql.crossJoin.enabled", "true")
 //				.master("local[*]").getOrCreate();
 //		Dataset<Row> dataFrame = sparkSession.read().format("geomesa").options(parameters)
 //				.option("geomesa.feature", table).load();
 		routesFrame.createOrReplaceTempView(table);
-		
+
 		String field = gen.getGeoPredicate().getNestedPredicateA().getName();
 		String wktGeom = gen.getGeoPredicate().getNestedPredicateA().getValue();
 
 		// Query
 		String sqlQuery = "select * from %s where st_Covers(st_geomFromWKT('%s'), %s)";
 		Dataset<Row> resultDataFrame = sparkSession.sql(String.format(sqlQuery, table, wktGeom, field));
-		//System.out.println(String.format("Query %s: Covers ::: %s", table,  wktGeom));
+		// System.out.println(String.format("Query %s: Covers ::: %s", table, wktGeom));
 		try {
-			
+
 			Row first = resultDataFrame.first();
-			//System.out.println(first.mkString(" | "));
+			// System.out.println(first.mkString(" | "));
 			return Status.OK;
-			
-		}catch(NoSuchElementException e) {
+
+		} catch (NoSuchElementException e) {
 			return Status.NOT_FOUND;
 		}
 	}
