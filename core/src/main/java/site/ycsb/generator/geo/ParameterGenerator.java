@@ -302,7 +302,7 @@ public abstract class ParameterGenerator {
     // replace coordinates field with new shifted coordinates array
     obj.getJSONObject(geometryField);
   //convert geojson docbody to wkt format 
-    GeometryJSON jsonhandler = new GeometryJSON();
+    GeometryJSON jsonhandler = new GeometryJSON(12);
 	WKTWriter wkthandler = new WKTWriter();
 	String wktgeom = "";
 	try {
@@ -631,7 +631,7 @@ public abstract class ParameterGenerator {
         obj.getJSONObject(geometryField).put(coordinatesField, newCoordArr);
         
       //convert geojson docbody to wkt format 
-        GeometryJSON jsonhandler = new GeometryJSON();
+        GeometryJSON jsonhandler = new GeometryJSON(12);
     	WKTWriter wkthandler = new WKTWriter();
     	String wktgeom = "";
     	try {
