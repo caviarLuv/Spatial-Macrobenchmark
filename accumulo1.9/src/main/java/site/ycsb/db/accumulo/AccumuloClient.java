@@ -123,7 +123,8 @@ public class AccumuloClient extends GeoDB {
 	public void cleanup() throws DBException {
 		if (INIT_COUNT.decrementAndGet() == 0) {
 			try {
-				// datastore.dispose();
+				 datastore.dispose();
+				 sparkSession.close();
 			} catch (Exception e) {
 				e.printStackTrace();
 				return;
@@ -237,10 +238,10 @@ public class AccumuloClient extends GeoDB {
 			FeatureWriter<SimpleFeatureType, SimpleFeature> writer) {
 		try {
 			SimpleFeature f = null;
-			if (table == "counties") {
+			if (table.equals( "counties")) {
 				f = createCounty(sft, value);
 			}
-			if (table == "routes") {
+			if (table.equals( "routes")) {
 				f = createRoute(sft, value);
 			}
 			if (f != null) {
