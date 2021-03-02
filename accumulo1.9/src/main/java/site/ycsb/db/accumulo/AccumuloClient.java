@@ -197,7 +197,7 @@ public class AccumuloClient extends GeoDB {
 			FeatureWriter<SimpleFeatureType, SimpleFeature> writer = datastore.getFeatureWriterAppend(sft.getTypeName(),
 					Transaction.AUTO_COMMIT);
 			// i < generator.getTotalDocsCount(table)
-			for (int i = 0; i < 5; i++) {
+			for (int i = 0; i < generator.getTotalDocsCount(table); i++) {
 				// Get the random document from memcached
 				String value = generator.getOriginalDocument(table, i + "");
 				if (value == null) {

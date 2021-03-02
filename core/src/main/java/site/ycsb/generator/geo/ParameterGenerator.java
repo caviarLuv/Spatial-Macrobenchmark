@@ -417,7 +417,7 @@ public abstract class ParameterGenerator {
 	      break;
 	    }
 	    
-	    System.out.println("*****" + docGeometry);
+	  //  System.out.println("*****" + docGeometry);
 	    // add to memcached client
 	    // e.g. counties:::geo:::1 -> geometry json object
 	    if(docGeometry != null)
@@ -553,14 +553,14 @@ public abstract class ParameterGenerator {
     
     // get the document
     while(docBody == null) {
-   //   System.out.println("STALL: " + keyPrefix + key);
+      System.out.println("STALL: " + keyPrefix + key);
       docBody = getOriginalDocument(table, key+"");
      // System.out.println("STALL: " + keyPrefix + key+ " ::::  " + docBody);
     }
     
     // Synthesize data
     String newDocBody = synthesize(table, docBody);  
-    System.out.println("###new DOC ::: " + newDocBody);
+    //System.out.println("###new DOC ::: " + newDocBody);
     // there is a chance to add the geometry to memcached as a potential parameter:
     rollChanceToAddDocAsParameter(table, newDocBody);
     
