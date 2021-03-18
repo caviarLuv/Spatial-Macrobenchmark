@@ -42,6 +42,7 @@ import org.geotools.geojson.geom.GeometryJSON;
 import org.json.JSONObject;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
@@ -99,8 +100,9 @@ public class AccumuloClient extends GeoDB {
 				System.out.println("Key=" + entry.getKey() + "   value=" + entry.getValue());
 			}
 
-			sparkSession = SparkSession.builder().appName("testSpark").master("local[*]").getOrCreate();
-			sparkSession.sparkContext().setLogLevel("ERROR");
+			sparkSession = SparkSession.builder().appName("testSpark").master("local[*]").config("spark.scheduler.mode", "FAIR").getOrCreate();
+			SparkContext sc = sparkSession.sparkContext();
+			//sc.setLogLevel("ERROR");
 			countiesFrame = sparkSession.read().format("geomesa").options(parameters)
 					.option("geomesa.feature", "counties").load();
 			routesFrame = sparkSession.read().format("geomesa").options(parameters).option("geomesa.feature", "routes")
